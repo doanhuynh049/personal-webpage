@@ -26,9 +26,26 @@ cp .env.example .env
 ./start.sh
 ```
 
-**Get a free Neon database:** [neon.tech](https://neon.tech) → New Project → copy connection string into `DATABASE_URL`.
+**Get a free Neon database:** [neon.tech](https://neon.tech) → New Project → copy the **pooler** connection string into `DATABASE_URL`. Required for both local dev and production.
 
-**Local dev without Neon:** set `USE_SQLITE=1` in `.env` (uses `data/site.db` locally). On Vercel, use Neon only — do not set `USE_SQLITE`.
+Test the connection:
+
+```bash
+npm run probe-db
+```
+
+If startup fails with `ETIMEDOUT` or `fetch failed`, Node cannot reach Neon (psql may still work). **`./start.sh` auto-starts local Docker Postgres on port 5434** and uses it for the session. To force local DB:
+
+```bash
+USE_LOCAL_DB=1 ./start.sh
+```
+
+Optional `.env` pin (keeps `DATABASE_URL` for Neon sync):
+
+```env
+RUNTIME_DATABASE_URL=postgresql://personal:personal@localhost:5434/personal_web
+DB_DRIVER=pg
+```
 
 | URL | Purpose |
 |-----|---------|

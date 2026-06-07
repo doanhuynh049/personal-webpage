@@ -99,43 +99,8 @@
     return `<div class="skills-matrix">${groups}</div>`;
   }
 
-  const ROADMAP_STATUS_LABELS = {
-    planned: "Planned",
-    in_progress: "In Progress",
-    completed: "Completed",
-  };
-
-  function renderRoadmapSection(roadmap, sections) {
-    if (!roadmap?.length) return "";
-    return `
-        <section id="roadmap" class="section roadmap">
-          <div class="container">
-            <header class="section-header">
-              <span class="section-label">${escapeHtml(sections.roadmap?.label || "Career Roadmap")}</span>
-              <h2>${escapeHtml(sections.roadmap?.heading || "Where I'm headed")}</h2>
-              ${sections.roadmap?.description ? `<p class="section-desc">${escapeHtml(sections.roadmap.description)}</p>` : ""}
-            </header>
-            <div class="roadmap-timeline">
-              ${roadmap.map((item) => `
-                <article class="roadmap-item roadmap-item--${escapeHtml(item.status)}">
-                  <div class="roadmap-marker" aria-hidden="true"></div>
-                  <div class="roadmap-card">
-                    <header class="roadmap-card-header">
-                      <time class="roadmap-period">${escapeHtml(item.period)}</time>
-                      <span class="roadmap-status">${escapeHtml(ROADMAP_STATUS_LABELS[item.status] || item.status)}</span>
-                    </header>
-                    <h3 class="roadmap-title">${escapeHtml(item.title)}</h3>
-                    ${item.description ? `<p class="roadmap-desc">${escapeHtml(item.description)}</p>` : ""}
-                  </div>
-                </article>
-              `).join("")}
-            </div>
-          </div>
-        </section>`;
-  }
-
   function renderPage(data) {
-    const { profile, about, sections, education, jobs, experiences, gallery, contacts, roadmap, site } = data;
+    const { profile, about, sections, education, jobs, experiences, gallery, contacts, site } = data;
     const projectExperiences = experiences.filter((e) => !e.is_skills);
     const skillsExperience = experiences.find((e) => e.is_skills);
     const adminUrl = site?.adminUrl || "/admin";
@@ -156,7 +121,6 @@
             <li><a href="#about">${escapeHtml(sections.about?.label || "About")}</a></li>
             <li><a href="#study">${escapeHtml(sections.study?.label || "Study")}</a></li>
             <li><a href="#work">${escapeHtml(sections.work?.label || "Work")}</a></li>
-            <li><a href="#roadmap">${escapeHtml(sections.roadmap?.label || "Career Roadmap")}</a></li>
             <li><a href="#experience">${escapeHtml(sections.experience?.label || "Experience")}</a></li>
             <li><a href="#gallery">${escapeHtml(sections.gallery?.label || "Gallery")}</a></li>
             <li><a href="#contact">${escapeHtml(sections.contact?.label || "Contact")}</a></li>
@@ -174,7 +138,7 @@
               <p class="hero-intro">${escapeHtml(profile.intro)}</p>
               <div class="hero-actions">
                 <a href="#gallery" class="btn btn-primary">View My Photos</a>
-                <a href="#roadmap" class="btn btn-outline">Career Roadmap</a>
+                <a href="#work" class="btn btn-outline">View Career</a>
                 <a href="#contact" class="btn btn-outline">Get in Touch</a>
                 <a href="/api/resume.pdf" class="btn btn-outline" download>Download Resume</a>
               </div>
@@ -244,8 +208,6 @@
             </div>
           </div>
         </section>
-
-        ${renderRoadmapSection(roadmap, sections)}
 
         <section id="experience" class="section experience">
           <div class="container">

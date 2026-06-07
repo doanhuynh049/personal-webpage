@@ -187,51 +187,7 @@ const contacts = [
   { label: "GitHub", value: "github.com/quathd_t", url: "https://github.com/quathd_t", sort_order: 2 },
 ];
 
-function migrateSqliteSchema() {
-  if (process.env.USE_SQLITE !== "1" && process.env.USE_SQLITE !== "true") return;
-  const { DatabaseSync } = require("node:sqlite");
-  const path = require("path");
-  const db = new DatabaseSync(path.join(__dirname, "../data/site.db"));
-  const sectionCols = db.prepare("PRAGMA table_info(sections)").all().map((c) => c.name);
-  if (sectionCols.includes("key") && !sectionCols.includes("section_key")) {
-    db.exec("ALTER TABLE sections RENAME COLUMN key TO section_key");
-    console.log("Migrated sections table: key → section_key");
-  }
-  const skillCols = db.prepare("PRAGMA table_info(skills)").all().map((c) => c.name);
-  if (skillCols.length && !skillCols.includes("category")) {
-    db.exec("ALTER TABLE skills ADD COLUMN category TEXT NOT NULL DEFAULT 'tools'");
-    console.log("Migrated skills: added category column");
-  }
-  if (skillCols.length && !skillCols.includes("sort_order")) {
-    db.exec("ALTER TABLE skills ADD COLUMN sort_order INTEGER DEFAULT 0");
-    console.log("Migrated skills: added sort_order column");
-  }
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS roadmap (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      period TEXT NOT NULL,
-      title TEXT NOT NULL,
-      description TEXT DEFAULT '',
-      status TEXT DEFAULT 'planned' CHECK (status IN ('planned', 'in_progress', 'completed')),
-      sort_order INTEGER DEFAULT 0
-    )
-  `);
-  const hasRoadmapSection = db.prepare("SELECT 1 FROM sections WHERE section_key = 'roadmap'").get();
-  if (!hasRoadmapSection) {
-    db.prepare(
-      "INSERT INTO sections (section_key, label, heading, description) VALUES (?, ?, ?, ?)"
-    ).run(
-      "roadmap",
-      "Career Roadmap",
-      "Where I'm headed",
-      "My career targets and learning path — goals I'm working toward in embedded systems and software engineering."
-    );
-    console.log("Added roadmap section");
-  }
-}
-
 async function seed() {
-  migrateSqliteSchema();
   await initDb();
   const sql = getSql();
 

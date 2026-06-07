@@ -6,10 +6,16 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "seed": "node --experimental-sqlite scripts/seed-personal-data.js"
+    "seed": "node scripts/seed-personal-data.js",
+    "probe-db": "node scripts/probe-db.js",
+    "probe-neon": "node scripts/probe-neon.js",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down",
+    "sync:db": "bash scripts/sync-db-from-neon.sh"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
+    "connect-pg-simple": "^10.0.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-session": "^1.18.1",

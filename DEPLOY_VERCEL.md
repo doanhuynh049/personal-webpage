@@ -20,8 +20,6 @@ In **Vercel → Project → Settings → Environment Variables**, add:
 | `ADMIN_PASSWORD` | Strong admin password | **Yes** |
 | `SESSION_SECRET` | Random string (`openssl rand -hex 32`) | **Yes** |
 
-Do **not** set `USE_SQLITE` on Vercel — that is for local development only.
-
 Apply to **Production**, **Preview**, and **Development**.
 
 ## Step 3: Deploy

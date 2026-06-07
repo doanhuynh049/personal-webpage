@@ -1,26 +1,7 @@
-const ws = require("ws");
-const { neon, neonConfig } = require("@neondatabase/serverless");
-
-neonConfig.webSocketConstructor = ws;
-
-let sql;
-
-function normalizeDatabaseUrl(url) {
-  return url.replace(/&channel_binding=require/g, "");
-}
-
-function getSql() {
-  if (!sql) {
-    const url = process.env.DATABASE_URL;
-    if (!url) {
-      throw new Error("DATABASE_URL environment variable is required (or set USE_SQLITE=1 for local dev)");
-    }
-    sql = neon(normalizeDatabaseUrl(url));
-  }
-  return sql;
-}
+const { ensureConnected, getSql } = require("../lib/db-connect");
 
 async function initDb() {
+  await ensureConnected();
   const db = getSql();
 
   await db`
@@ -184,7 +165,11 @@ async function seedDb() {
     ["contact", "Contact", "Let's connect", "Feel free to reach out for collaborations, questions, or just to say hello."],
   ];
   for (const [key, label, heading, description] of sections) {
-    await db`INSERT INTO sections (section_key, label, heading, description) VALUES (${key}, ${label}, ${heading}, ${description})`;
+    await db`
+      INSERT INTO sections (section_key, label, heading, description)
+      VALUES (${key}, ${label}, ${heading}, ${description})
+      ON CONFLICT (section_key) DO NOTHING
+    `;
   }
 
   await db`
