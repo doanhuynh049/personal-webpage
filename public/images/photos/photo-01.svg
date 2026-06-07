@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <rect width="800" height="600" fill="hsl(160, 25%, 88%)"/>
+  <circle cx="400" cy="260" r="48" fill="hsl(160, 20%, 72%)" opacity="0.6"/>
+  <path d="M200 420 Q400 320 600 420 L600 600 L200 600 Z" fill="hsl(160, 20%, 72%)" opacity="0.5"/>
+  <text x="400" y="540" text-anchor="middle" font-family="system-ui,sans-serif" font-size="18" fill="hsl(160, 15%, 45%)">Photo 01</text>
+</svg>
