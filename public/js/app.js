@@ -404,16 +404,29 @@
   }
 
   fetch("/api/content")
-    .then((res) => {
-      if (!res.ok) throw new Error("Failed to load content");
+    .then(async (res) => {
+      if (!res.ok) {
+        let detail = res.statusText;
+        try {
+          const body = await res.json();
+          if (body.error) detail = body.error;
+        } catch {
+          /* ignore */
+        }
+        throw new Error(detail || "Failed to load content");
+      }
       return res.json();
     })
     .then(renderPage)
-    .catch(() => {
+    .catch((err) => {
+      const hint =
+        err.message && err.message !== "Failed to load content"
+          ? escapeHtml(err.message)
+          : "Check Vercel env vars (DATABASE_URL) and function logs.";
       app.innerHTML = `
         <div class="page-error">
           <h1>Unable to load page</h1>
-          <p>Make sure the server is running: <code>npm start</code></p>
+          <p>${hint}</p>
         </div>
       `;
     });

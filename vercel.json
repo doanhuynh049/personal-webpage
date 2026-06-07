@@ -1,10 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/api" }
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/api/(.*)", "dest": "/api/[...all].js" },
+    { "src": "/(.*)", "dest": "/api/[...all].js" }
   ],
   "functions": {
-    "api/index.js": {
+    "api/[...all].js": {
       "maxDuration": 30,
       "includeFiles": "public/**"
     }
