@@ -683,7 +683,177 @@ input, textarea, select, button {
 
 .add-skill-row input { flex: 1; }
 
-/* ---- Gallery Admin ---- */
+/* ---- Gallery layout editor (matches public grid) ---- */
+
+.gallery-layout-editor {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: 180px;
+  gap: 1rem;
+}
+
+.gallery-editor-item {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 2px solid var(--border);
+  background: var(--bg);
+  box-shadow: var(--shadow);
+  transition: border-color 0.15s, opacity 0.15s;
+}
+
+.gallery-editor-item.is-dragging {
+  opacity: 0.45;
+  border-color: var(--accent);
+  border-style: dashed;
+}
+
+.gallery-editor-item.is-drop-target {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.gallery-editor-item.gallery-item--wide {
+  grid-column: span 2;
+}
+
+.gallery-editor-item.gallery-item--tall {
+  grid-row: span 2;
+}
+
+.gallery-editor-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+
+.gallery-editor-pos {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 2;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+}
+
+.gallery-editor-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.5rem;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 35%, transparent 55%, rgba(0,0,0,0.5) 100%);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.gallery-editor-item:hover .gallery-editor-overlay,
+.gallery-editor-item:focus-within .gallery-editor-overlay {
+  opacity: 1;
+}
+
+.gallery-editor-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.drag-handle {
+  cursor: grab;
+  color: #fff;
+  font-size: 1.1rem;
+  padding: 0.25rem 0.45rem;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 6px;
+  user-select: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.gallery-layout-btns {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.gallery-layout-btn {
+  border: none;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.25rem 0.45rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.gallery-layout-btn.is-active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.gallery-editor-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.gallery-editor-bottom input {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.gallery-editor-actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.gallery-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  padding: 2rem;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  margin-top: 1rem;
+}
+
+@media (max-width: 900px) {
+  .gallery-layout-editor {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .gallery-editor-item.gallery-item--wide {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 600px) {
+  .gallery-layout-editor {
+    grid-template-columns: 1fr;
+    grid-auto-rows: 200px;
+  }
+
+  .gallery-editor-item.gallery-item--wide,
+  .gallery-editor-item.gallery-item--tall {
+    grid-column: span 1;
+    grid-row: span 1;
+  }
+}
+
+/* ---- Gallery Admin (legacy cards removed) ---- */
 
 .gallery-admin-grid {
   display: grid;

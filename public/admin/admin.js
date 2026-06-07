@@ -74,6 +74,21 @@
 
   AdminTools.init({ api, showToast, query: $ });
 
+  function applySiteLinks() {
+    const site = content?.site || {};
+    const publicUrl = site.publicUrl || "/";
+    const viewSite = document.getElementById("sidebar-view-site");
+    if (viewSite) viewSite.href = publicUrl;
+
+    const preview = document.getElementById("live-preview");
+    if (preview) {
+      const base = publicUrl.startsWith("http")
+        ? publicUrl.replace(/\/$/, "")
+        : window.location.origin;
+      preview.src = `${base}/?preview=${Date.now()}`;
+    }
+  }
+
   function showLogin() {
     loginScreen.hidden = false;
     dashboard.hidden = true;
@@ -136,6 +151,7 @@
 
   async function loadContent() {
     content = await api("/api/content");
+    applySiteLinks();
     renderProfile();
     renderAbout();
     renderEducation();
@@ -524,6 +540,7 @@
             }),
           });
           showToast("Roadmap saved");
+          AdminTools.refreshPreview();
         } catch (err) { showToast(err.message, true); }
       });
     });
@@ -551,28 +568,44 @@
     showToast("Milestone added");
   });
 
-  // Gallery
+  // Gallery — visual layout editor
+  function galleryLayoutClass(layout) {
+    if (layout === "wide") return "gallery-item--wide";
+    if (layout === "tall") return "gallery-item--tall";
+    return "";
+  }
+
   function renderGallery() {
-    $("#gallery-list").innerHTML = content.gallery.map((item) => `
-      <div class="gallery-admin-card sortable-item" data-id="${item.id}">
-        <div class="gallery-drag-bar">
-          <span class="drag-handle" draggable="true" title="Drag to reorder">⠿</span>
-        </div>
-        <img src="${esc(item.image_path)}" alt="${esc(item.alt_text || item.caption || "Gallery photo")}">
-        <div class="gallery-admin-body">
-          <label for="gal-caption-${item.id}">Caption</label>
-          <input type="text" id="gal-caption-${item.id}" name="gal-caption-${item.id}" class="gal-caption" value="${esc(item.caption)}" placeholder="Caption">
-          <label for="gal-alt-${item.id}">Alt text</label>
-          <input type="text" id="gal-alt-${item.id}" name="gal-alt-${item.id}" class="gal-alt" value="${esc(item.alt_text)}" placeholder="Alt text">
-          <label for="gal-layout-${item.id}">Layout</label>
-          <select id="gal-layout-${item.id}" name="gal-layout-${item.id}" class="gal-layout">
-            <option value="normal" ${item.layout === "normal" ? "selected" : ""}>Normal</option>
-            <option value="wide" ${item.layout === "wide" ? "selected" : ""}>Wide</option>
-            <option value="tall" ${item.layout === "tall" ? "selected" : ""}>Tall</option>
-          </select>
-          <div class="gallery-admin-actions">
-            <button class="btn btn-primary btn-sm save-gal">Save</button>
-            <button class="btn btn-danger btn-sm delete-gal">Delete</button>
+    const items = content.gallery || [];
+    const list = $("#gallery-list");
+    const empty = $("#gallery-empty");
+    empty.hidden = items.length > 0;
+    list.hidden = items.length === 0;
+
+    if (!items.length) {
+      list.innerHTML = "";
+      return;
+    }
+
+    list.innerHTML = items.map((item, index) => `
+      <div class="gallery-editor-item ${galleryLayoutClass(item.layout)}" data-id="${item.id}">
+        <span class="gallery-editor-pos">${index + 1}</span>
+        <img src="${esc(item.image_path)}" alt="${esc(item.alt_text || item.caption || "Photo")}">
+        <div class="gallery-editor-overlay">
+          <div class="gallery-editor-top">
+            <span class="drag-handle" draggable="true" title="Drag to change position">⠿</span>
+            <div class="gallery-layout-btns">
+              <button type="button" class="gallery-layout-btn ${item.layout === "normal" || !item.layout ? "is-active" : ""}" data-layout="normal" title="Normal">N</button>
+              <button type="button" class="gallery-layout-btn ${item.layout === "wide" ? "is-active" : ""}" data-layout="wide" title="Wide">W</button>
+              <button type="button" class="gallery-layout-btn ${item.layout === "tall" ? "is-active" : ""}" data-layout="tall" title="Tall">T</button>
+            </div>
+          </div>
+          <div class="gallery-editor-bottom">
+            <input type="text" class="gal-caption" value="${esc(item.caption)}" placeholder="Caption" aria-label="Caption">
+            <input type="text" class="gal-alt" value="${esc(item.alt_text)}" placeholder="Alt text" aria-label="Alt text">
+            <div class="gallery-editor-actions">
+              <button type="button" class="btn btn-danger btn-sm delete-gal">Delete</button>
+            </div>
           </div>
         </div>
       </div>
@@ -580,50 +613,91 @@
     bindGalleryEvents();
   }
 
+  async function saveGalleryItem(card) {
+    const id = card.dataset.id;
+    const orig = content.gallery.find((g) => g.id == id);
+    const layout = card.querySelector(".gallery-layout-btn.is-active")?.dataset.layout || orig.layout || "normal";
+    await api(`/api/gallery/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        image_path: orig.image_path,
+        caption: card.querySelector(".gal-caption").value,
+        alt_text: card.querySelector(".gal-alt").value,
+        layout,
+      }),
+    });
+  }
+
   function bindGalleryEvents() {
-    $("#gallery-list").querySelectorAll(".save-gal").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const card = btn.closest(".gallery-admin-card");
-        const id = card.dataset.id;
-        const orig = content.gallery.find((g) => g.id == id);
-        try {
-          await api(`/api/gallery/${id}`, {
-            method: "PUT",
-            body: JSON.stringify({
-              image_path: orig.image_path,
-              caption: card.querySelector(".gal-caption").value,
-              alt_text: card.querySelector(".gal-alt").value,
-              layout: card.querySelector(".gal-layout").value,
-            }),
-          });
-          showToast("Photo saved");
+    const list = $("#gallery-list");
+
+    AdminTools.initGalleryLayoutEditor(list, async (ids) => {
+      await api("/api/gallery/reorder", { method: "PUT", body: JSON.stringify({ ids }) });
+      showToast("Photo order saved");
+      AdminTools.refreshPreview();
+    });
+
+    list.querySelectorAll(".gallery-editor-item").forEach((card) => {
+      card.querySelectorAll(".gallery-layout-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const layout = btn.dataset.layout;
+          card.classList.remove("gallery-item--wide", "gallery-item--tall");
+          if (layout === "wide") card.classList.add("gallery-item--wide");
+          if (layout === "tall") card.classList.add("gallery-item--tall");
+          card.querySelectorAll(".gallery-layout-btn").forEach((b) => b.classList.toggle("is-active", b === btn));
+          await saveGalleryItem(card);
+          showToast("Tile size updated");
           AdminTools.refreshPreview();
-        } catch (err) { showToast(err.message, true); }
+        });
+      });
+
+      card.querySelector(".gal-caption")?.addEventListener("change", async () => {
+        await saveGalleryItem(card);
+        showToast("Caption saved");
+        AdminTools.refreshPreview();
+      });
+      card.querySelector(".gal-alt")?.addEventListener("change", async () => {
+        await saveGalleryItem(card);
+        showToast("Alt text saved");
       });
     });
-    $("#gallery-list").querySelectorAll(".delete-gal").forEach((btn) => {
+
+    list.querySelectorAll(".delete-gal").forEach((btn) => {
       btn.addEventListener("click", async () => {
         if (!confirm("Delete this photo?")) return;
-        await api(`/api/gallery/${btn.closest(".gallery-admin-card").dataset.id}`, { method: "DELETE" });
+        await api(`/api/gallery/${btn.closest(".gallery-editor-item").dataset.id}`, { method: "DELETE" });
         await loadContent();
         showToast("Photo deleted");
+        AdminTools.refreshPreview();
       });
     });
   }
 
   $("#gallery-upload").addEventListener("change", async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    try {
-      const path = await uploadImage(file);
-      await api("/api/gallery", {
-        method: "POST",
-        body: JSON.stringify({ image_path: path, caption: "", alt_text: file.name, layout: "normal" }),
-      });
-      await loadContent();
-      showToast("Photo uploaded");
-    } catch (err) { showToast(err.message, true); }
+    const files = [...e.target.files];
+    if (!files.length) return;
     e.target.value = "";
+
+    try {
+      if (files.length === 1) {
+        const path = await uploadImage(files[0]);
+        await api("/api/gallery", {
+          method: "POST",
+          body: JSON.stringify({ image_path: path, caption: "", alt_text: files[0].name, layout: "normal" }),
+        });
+        showToast("Photo uploaded");
+      } else {
+        const form = new FormData();
+        files.forEach((f) => form.append("images", f));
+        const res = await fetch("/api/gallery/batch", { method: "POST", credentials: "same-origin", body: form });
+        if (res.status === 401) { showLogin(); throw new Error("Unauthorized"); }
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Upload failed");
+        showToast(`${data.count} photos uploaded`);
+      }
+      await loadContent();
+      AdminTools.refreshPreview();
+    } catch (err) { showToast(err.message, true); }
   });
 
   // Contacts

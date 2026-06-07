@@ -28,11 +28,16 @@ const sections = {
   about: { label: "About Me", heading: "A little about who I am", description: "" },
   study: { label: "Education", heading: "Where I've studied", description: "" },
   work: { label: "Career", heading: "Where I've worked", description: "" },
+  roadmap: {
+    label: "Career Roadmap",
+    heading: "Where I'm headed",
+    description: "My career targets and learning path — goals I'm working toward in embedded systems and software engineering.",
+  },
   experience: { label: "Experience", heading: "Projects & milestones", description: "" },
   gallery: {
     label: "Photography",
     heading: "Moments I've captured",
-    description: "A collection of photos from daily life and travels — update with your own images in the admin panel.",
+    description: "A hobby I enjoy — landscapes, street scenes, and everyday moments. Add as many photos as you like from the admin gallery.",
   },
   contact: {
     label: "Contact",
@@ -211,6 +216,18 @@ function migrateSqliteSchema() {
       sort_order INTEGER DEFAULT 0
     )
   `);
+  const hasRoadmapSection = db.prepare("SELECT 1 FROM sections WHERE section_key = 'roadmap'").get();
+  if (!hasRoadmapSection) {
+    db.prepare(
+      "INSERT INTO sections (section_key, label, heading, description) VALUES (?, ?, ?, ?)"
+    ).run(
+      "roadmap",
+      "Career Roadmap",
+      "Where I'm headed",
+      "My career targets and learning path — goals I'm working toward in embedded systems and software engineering."
+    );
+    console.log("Added roadmap section");
+  }
 }
 
 async function seed() {

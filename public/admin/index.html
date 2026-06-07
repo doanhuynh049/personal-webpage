@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2d4a3e">
   <title>Admin — Personal Page</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
@@ -47,7 +50,7 @@
         <button class="nav-item" data-panel="contact">Contact</button>
       </nav>
       <div class="sidebar-footer">
-        <a href="/" target="_blank" class="sidebar-link">View Site ↗</a>
+        <a href="/" id="sidebar-view-site" target="_blank" class="sidebar-link">View Site ↗</a>
         <a href="/api/resume.pdf" class="sidebar-link" download>Download Resume PDF</a>
         <button id="logout-btn" class="sidebar-link sidebar-link--muted">Sign Out</button>
       </div>
@@ -182,11 +185,13 @@
         <!-- Gallery -->
         <section class="panel" id="panel-gallery">
           <div class="panel-toolbar">
-            <label for="gallery-upload" class="btn btn-secondary btn-sm">+ Upload Photo</label>
-            <input type="file" id="gallery-upload" name="gallery-photo" accept="image/*" hidden>
-            <span class="panel-hint">Drag photos to reorder</span>
+            <label for="gallery-upload" class="btn btn-secondary btn-sm">+ Upload Photos</label>
+            <input type="file" id="gallery-upload" name="gallery-photo" accept="image/*" multiple hidden>
+            <span class="panel-hint">Unlimited photos · drag on grid to set position · N/W/T = size on page</span>
           </div>
-          <div id="gallery-list" class="gallery-admin-grid"></div>
+          <p class="panel-intro">Arrange your photography hobby gallery — order and tile size match the live site.</p>
+          <div id="gallery-list" class="gallery-layout-editor"></div>
+          <p id="gallery-empty" class="gallery-empty" hidden>No photos yet. Upload one or many images to get started.</p>
         </section>
 
         <!-- Contact -->

@@ -99,10 +99,47 @@
     return `<div class="skills-matrix">${groups}</div>`;
   }
 
+  const ROADMAP_STATUS_LABELS = {
+    planned: "Planned",
+    in_progress: "In Progress",
+    completed: "Completed",
+  };
+
+  function renderRoadmapSection(roadmap, sections) {
+    if (!roadmap?.length) return "";
+    return `
+        <section id="roadmap" class="section roadmap">
+          <div class="container">
+            <header class="section-header">
+              <span class="section-label">${escapeHtml(sections.roadmap?.label || "Career Roadmap")}</span>
+              <h2>${escapeHtml(sections.roadmap?.heading || "Where I'm headed")}</h2>
+              ${sections.roadmap?.description ? `<p class="section-desc">${escapeHtml(sections.roadmap.description)}</p>` : ""}
+            </header>
+            <div class="roadmap-timeline">
+              ${roadmap.map((item) => `
+                <article class="roadmap-item roadmap-item--${escapeHtml(item.status)}">
+                  <div class="roadmap-marker" aria-hidden="true"></div>
+                  <div class="roadmap-card">
+                    <header class="roadmap-card-header">
+                      <time class="roadmap-period">${escapeHtml(item.period)}</time>
+                      <span class="roadmap-status">${escapeHtml(ROADMAP_STATUS_LABELS[item.status] || item.status)}</span>
+                    </header>
+                    <h3 class="roadmap-title">${escapeHtml(item.title)}</h3>
+                    ${item.description ? `<p class="roadmap-desc">${escapeHtml(item.description)}</p>` : ""}
+                  </div>
+                </article>
+              `).join("")}
+            </div>
+          </div>
+        </section>`;
+  }
+
   function renderPage(data) {
-    const { profile, about, sections, education, jobs, experiences, gallery, contacts } = data;
+    const { profile, about, sections, education, jobs, experiences, gallery, contacts, roadmap, site } = data;
     const projectExperiences = experiences.filter((e) => !e.is_skills);
     const skillsExperience = experiences.find((e) => e.is_skills);
+    const adminUrl = site?.adminUrl || "/admin";
+    const showAdminLink = site?.showAdminLink !== false;
 
     document.title = `${profile.name} — Personal Page`;
     document.querySelector('meta[name="description"]').content =
@@ -119,6 +156,7 @@
             <li><a href="#about">${escapeHtml(sections.about?.label || "About")}</a></li>
             <li><a href="#study">${escapeHtml(sections.study?.label || "Study")}</a></li>
             <li><a href="#work">${escapeHtml(sections.work?.label || "Work")}</a></li>
+            <li><a href="#roadmap">${escapeHtml(sections.roadmap?.label || "Career Roadmap")}</a></li>
             <li><a href="#experience">${escapeHtml(sections.experience?.label || "Experience")}</a></li>
             <li><a href="#gallery">${escapeHtml(sections.gallery?.label || "Gallery")}</a></li>
             <li><a href="#contact">${escapeHtml(sections.contact?.label || "Contact")}</a></li>
@@ -136,6 +174,7 @@
               <p class="hero-intro">${escapeHtml(profile.intro)}</p>
               <div class="hero-actions">
                 <a href="#gallery" class="btn btn-primary">View My Photos</a>
+                <a href="#roadmap" class="btn btn-outline">Career Roadmap</a>
                 <a href="#contact" class="btn btn-outline">Get in Touch</a>
                 <a href="/api/resume.pdf" class="btn btn-outline" download>Download Resume</a>
               </div>
@@ -206,6 +245,8 @@
           </div>
         </section>
 
+        ${renderRoadmapSection(roadmap, sections)}
+
         <section id="experience" class="section experience">
           <div class="container">
             <header class="section-header">
@@ -272,12 +313,13 @@
         </div>
       </footer>
 
-      <a href="/admin" class="admin-link" aria-label="Open admin panel" title="Admin panel">
+      ${showAdminLink ? `
+      <a href="${escapeHtml(adminUrl)}" class="admin-link" aria-label="Open admin panel" title="Admin panel">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M12 20h9"/>
           <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
         </svg>
-      </a>
+      </a>` : ""}
     `;
 
     initInteractions();

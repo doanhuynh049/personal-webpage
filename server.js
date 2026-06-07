@@ -50,6 +50,13 @@ app.use("/api", require("./routes/tools"));
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/uploads", express.static(getUploadDir()));
 
+const faviconPath = path.join(__dirname, "public", "favicon.svg");
+app.get(["/favicon.ico", "/favicon.svg"], (_req, res) => {
+  res.setHeader("Cache-Control", "public, max-age=604800");
+  res.type("image/svg+xml");
+  res.sendFile(faviconPath);
+});
+
 app.get("/admin", (_req, res) => {
   res.sendFile(path.join(__dirname, "public", "admin", "index.html"));
 });

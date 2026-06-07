@@ -55,10 +55,81 @@
     });
   }
 
+  function initGalleryLayoutEditor(listEl, onReorder) {
+    if (!listEl) return;
+    let dragEl = null;
+
+    function layoutClass(layout) {
+      if (layout === "wide") return "gallery-item--wide";
+      if (layout === "tall") return "gallery-item--tall";
+      return "";
+    }
+
+    function updatePositionBadges() {
+      listEl.querySelectorAll(".gallery-editor-item").forEach((el, i) => {
+        const badge = el.querySelector(".gallery-editor-pos");
+        if (badge) badge.textContent = String(i + 1);
+      });
+    }
+
+    listEl.querySelectorAll(".gallery-editor-item").forEach((card) => {
+      const handle = card.querySelector(".drag-handle");
+      if (!handle) return;
+
+      handle.addEventListener("dragstart", (e) => {
+        dragEl = card;
+        card.classList.add("is-dragging");
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", card.dataset.id);
+      });
+
+      card.addEventListener("dragend", () => {
+        card.classList.remove("is-dragging");
+        dragEl = null;
+        document.querySelectorAll(".gallery-editor-item.is-drop-target").forEach((el) => {
+          el.classList.remove("is-drop-target");
+        });
+      });
+    });
+
+    listEl.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      if (!dragEl) return;
+
+      document.querySelectorAll(".gallery-editor-item.is-drop-target").forEach((el) => {
+        el.classList.remove("is-drop-target");
+      });
+
+      const target = e.target.closest(".gallery-editor-item");
+      if (!target || target === dragEl) return;
+
+      target.classList.add("is-drop-target");
+      const rect = target.getBoundingClientRect();
+      const after = e.clientY > rect.top + rect.height / 2;
+      if (after) listEl.insertBefore(dragEl, target.nextSibling);
+      else listEl.insertBefore(dragEl, target);
+      updatePositionBadges();
+    });
+
+    listEl.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      if (!dragEl) return;
+      dragEl.classList.remove("is-dragging");
+      dragEl = null;
+      document.querySelectorAll(".gallery-editor-item.is-drop-target").forEach((el) => {
+        el.classList.remove("is-drop-target");
+      });
+      updatePositionBadges();
+      const ids = [...listEl.querySelectorAll(".gallery-editor-item")].map((el) => Number(el.dataset.id));
+      if (onReorder) await onReorder(ids);
+    });
+
+    updatePositionBadges();
+  }
+
   function initAllSortables() {
     initSortable(document.getElementById("education-list"), "education");
     initSortable(document.getElementById("jobs-list"), "jobs");
-    initSortable(document.getElementById("gallery-list"), "gallery");
     initSortable(document.getElementById("roadmap-list"), "roadmap");
   }
 
@@ -149,5 +220,6 @@
 
   AdminTools.refreshPreview = refreshPreview;
   AdminTools.initAllSortables = initAllSortables;
+  AdminTools.initGalleryLayoutEditor = initGalleryLayoutEditor;
   AdminTools.bindAiButtons = bindAiButtons;
 })(window.AdminTools = window.AdminTools || {});

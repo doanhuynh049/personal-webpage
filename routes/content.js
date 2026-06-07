@@ -259,6 +259,33 @@ router.post("/gallery", requireAuth, async (req, res, next) => {
   }
 });
 
+router.post("/gallery/batch", requireAuth, upload.array("images", 200), async (req, res, next) => {
+  try {
+    if (!req.files?.length) {
+      return res.status(400).json({ error: "No files uploaded" });
+    }
+    const sql = getSql();
+    const countRows = await sql`SELECT COUNT(*) AS count FROM gallery`;
+    const baseOrder = Number(countRows[0]?.count ?? 0);
+    const items = [];
+
+    for (let i = 0; i < req.files.length; i++) {
+      const file = req.files[i];
+      const image_path = `/uploads/${file.filename}`;
+      const rows = await sql`
+        INSERT INTO gallery (image_path, caption, alt_text, layout, sort_order)
+        VALUES (${image_path}, ${""}, ${file.originalname}, ${"normal"}, ${baseOrder + i})
+        RETURNING id
+      `;
+      items.push({ id: rows[0].id, image_path });
+    }
+
+    res.json({ count: items.length, items });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.put("/gallery/:id", requireAuth, async (req, res, next) => {
   try {
     const { image_path, caption, alt_text, layout, sort_order } = req.body;

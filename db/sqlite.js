@@ -153,6 +153,18 @@ function migrateSchema(conn) {
       sort_order INTEGER DEFAULT 0
     )
   `);
+
+  const roadmapSection = conn.prepare("SELECT section_key FROM sections WHERE section_key = 'roadmap'").get();
+  if (!roadmapSection) {
+    conn.prepare(
+      "INSERT INTO sections (section_key, label, heading, description) VALUES (?, ?, ?, ?)"
+    ).run(
+      "roadmap",
+      "Career Roadmap",
+      "Where I'm headed",
+      "My career targets and learning path — goals I'm working toward in embedded systems and software engineering."
+    );
+  }
 }
 
 async function seedDb() {
@@ -179,6 +191,7 @@ async function seedDb() {
     ["about", "About Me", "A little about who I am", ""],
     ["study", "Education", "Where I've studied", ""],
     ["work", "Career", "Where I've worked", ""],
+    ["roadmap", "Career Roadmap", "Where I'm headed", "My career targets and learning path — goals I'm working toward."],
     ["experience", "Experience", "Projects & milestones", ""],
     ["gallery", "Photography", "Moments I've captured", "A selection of photos I've taken — landscapes, portraits, street scenes, and more."],
     ["contact", "Contact", "Let's connect", "Feel free to reach out for collaborations, questions, or just to say hello."],
@@ -267,6 +280,7 @@ async function getPublicContent() {
     gallery,
     contacts,
     roadmap,
+    site: require("../config/site").getSiteConfig(),
   };
 }
 
