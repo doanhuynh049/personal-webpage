@@ -23,22 +23,26 @@
 
   async function api(url, options = {}) {
     const res = await fetch(url, {
+      credentials: "same-origin",
       headers: { "Content-Type": "application/json", ...options.headers },
       ...options,
     });
-    if (res.status === 401) {
+    if (res.status === 401 && !url.includes("/login")) {
       showLogin();
       throw new Error("Unauthorized");
     }
     const data = res.headers.get("content-type")?.includes("json") ? await res.json() : null;
-    if (!res.ok) throw new Error(data?.error || "Request failed");
+    if (!res.ok) {
+      const msg = data?.error || "Request failed";
+      throw new Error(msg);
+    }
     return data;
   }
 
   async function uploadImage(file) {
     const form = new FormData();
     form.append("image", file);
-    const res = await fetch("/api/upload", { method: "POST", body: form });
+    const res = await fetch("/api/upload", { method: "POST", credentials: "same-origin", body: form });
     if (res.status === 401) { showLogin(); throw new Error("Unauthorized"); }
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Upload failed");
@@ -56,11 +60,13 @@
   function showLogin() {
     loginScreen.hidden = false;
     dashboard.hidden = true;
+    document.body.classList.remove("is-authenticated");
   }
 
   function showDashboard() {
     loginScreen.hidden = true;
     dashboard.hidden = false;
+    document.body.classList.add("is-authenticated");
   }
 
   async function checkAuth() {
@@ -81,11 +87,16 @@
         method: "POST",
         body: JSON.stringify({ password: $("#password").value }),
       });
-      showDashboard();
-      await loadContent();
-    } catch {
-      loginError.textContent = "Invalid password";
+    } catch (err) {
+      loginError.textContent = err.message || "Login failed";
       loginError.hidden = false;
+      return;
+    }
+    showDashboard();
+    try {
+      await loadContent();
+    } catch (err) {
+      showToast("Logged in but failed to load content: " + err.message, true);
     }
   });
 
@@ -186,11 +197,11 @@
       <div class="item-card" data-id="${item.id}">
         <div class="item-card-header"><h4>Education</h4></div>
         <div class="form-row">
-          <div class="form-group"><label>Period</label><input class="edu-period" value="${esc(item.period)}"></div>
-          <div class="form-group"><label>Degree / Program</label><input class="edu-title" value="${esc(item.title)}"></div>
+          <div class="form-group"><label for="edu-period-${item.id}">Period</label><input type="text" id="edu-period-${item.id}" name="edu-period-${item.id}" class="edu-period" value="${esc(item.period)}"></div>
+          <div class="form-group"><label for="edu-title-${item.id}">Degree / Program</label><input type="text" id="edu-title-${item.id}" name="edu-title-${item.id}" class="edu-title" value="${esc(item.title)}"></div>
         </div>
-        <div class="form-group"><label>Institution</label><input class="edu-institution" value="${esc(item.institution)}"></div>
-        <div class="form-group"><label>Description</label><textarea class="edu-desc" rows="2">${esc(item.description)}</textarea></div>
+        <div class="form-group"><label for="edu-institution-${item.id}">Institution</label><input type="text" id="edu-institution-${item.id}" name="edu-institution-${item.id}" class="edu-institution" value="${esc(item.institution)}"></div>
+        <div class="form-group"><label for="edu-desc-${item.id}">Description</label><textarea id="edu-desc-${item.id}" name="edu-desc-${item.id}" class="edu-desc" rows="2">${esc(item.description)}</textarea></div>
         <div class="item-card-actions">
           <button class="btn btn-primary btn-sm save-edu">Save</button>
           <button class="btn btn-danger btn-sm delete-edu">Delete</button>
@@ -245,11 +256,11 @@
       <div class="item-card" data-id="${item.id}">
         <div class="item-card-header"><h4>Job</h4></div>
         <div class="form-row">
-          <div class="form-group"><label>Period</label><input class="job-period" value="${esc(item.period)}"></div>
-          <div class="form-group"><label>Title</label><input class="job-title" value="${esc(item.title)}"></div>
+          <div class="form-group"><label for="job-period-${item.id}">Period</label><input type="text" id="job-period-${item.id}" name="job-period-${item.id}" class="job-period" value="${esc(item.period)}"></div>
+          <div class="form-group"><label for="job-title-${item.id}">Title</label><input type="text" id="job-title-${item.id}" name="job-title-${item.id}" class="job-title" value="${esc(item.title)}"></div>
         </div>
-        <div class="form-group"><label>Company</label><input class="job-company" value="${esc(item.company)}"></div>
-        <div class="form-group"><label>Description</label><textarea class="job-desc" rows="2">${esc(item.description)}</textarea></div>
+        <div class="form-group"><label for="job-company-${item.id}">Company</label><input type="text" id="job-company-${item.id}" name="job-company-${item.id}" class="job-company" value="${esc(item.company)}"></div>
+        <div class="form-group"><label for="job-desc-${item.id}">Description</label><textarea id="job-desc-${item.id}" name="job-desc-${item.id}" class="job-desc" rows="2">${esc(item.description)}</textarea></div>
         <div class="item-card-actions">
           <button class="btn btn-primary btn-sm save-job">Save</button>
           <button class="btn btn-danger btn-sm delete-job">Delete</button>
@@ -301,15 +312,16 @@
     $("#experience-list").innerHTML = content.experiences.map((item) => `
       <div class="item-card" data-id="${item.id}" data-skills="${item.is_skills}">
         <div class="item-card-header"><h4>${item.is_skills ? "Skills & Interests" : "Experience"}</h4></div>
-        <div class="form-group"><label>Title</label><input class="exp-title" value="${esc(item.title)}"></div>
-        ${item.is_skills ? "" : `<div class="form-group"><label>Description</label><textarea class="exp-desc" rows="2">${esc(item.description)}</textarea></div>`}
+        <div class="form-group"><label for="exp-title-${item.id}">Title</label><input type="text" id="exp-title-${item.id}" name="exp-title-${item.id}" class="exp-title" value="${esc(item.title)}"></div>
+        ${item.is_skills ? "" : `<div class="form-group"><label for="exp-desc-${item.id}">Description</label><textarea id="exp-desc-${item.id}" name="exp-desc-${item.id}" class="exp-desc" rows="2">${esc(item.description)}</textarea></div>`}
         ${item.is_skills ? `
           <div class="skills-input-row" id="skills-${item.id}">
-            ${item.skills.map((s) => `<span class="skill-tag">${esc(s.name)}<button data-skill-id="${s.id}">&times;</button></span>`).join("")}
+            ${item.skills.map((s) => `<span class="skill-tag">${esc(s.name)}<button type="button" data-skill-id="${s.id}" aria-label="Remove skill">&times;</button></span>`).join("")}
           </div>
           <div class="add-skill-row">
-            <input type="text" class="new-skill-input" placeholder="Add skill...">
-            <button class="btn btn-secondary btn-sm add-skill-btn">Add</button>
+            <label for="new-skill-${item.id}" class="visually-hidden">Add skill</label>
+            <input type="text" id="new-skill-${item.id}" name="new-skill-${item.id}" class="new-skill-input" placeholder="Add skill...">
+            <button type="button" class="btn btn-secondary btn-sm add-skill-btn">Add</button>
           </div>
         ` : ""}
         <div class="item-card-actions">
@@ -383,11 +395,14 @@
   function renderGallery() {
     $("#gallery-list").innerHTML = content.gallery.map((item) => `
       <div class="gallery-admin-card" data-id="${item.id}">
-        <img src="${esc(item.image_path)}" alt="">
+        <img src="${esc(item.image_path)}" alt="${esc(item.alt_text || item.caption || "Gallery photo")}">
         <div class="gallery-admin-body">
-          <input class="gal-caption" value="${esc(item.caption)}" placeholder="Caption">
-          <input class="gal-alt" value="${esc(item.alt_text)}" placeholder="Alt text">
-          <select class="gal-layout">
+          <label for="gal-caption-${item.id}">Caption</label>
+          <input type="text" id="gal-caption-${item.id}" name="gal-caption-${item.id}" class="gal-caption" value="${esc(item.caption)}" placeholder="Caption">
+          <label for="gal-alt-${item.id}">Alt text</label>
+          <input type="text" id="gal-alt-${item.id}" name="gal-alt-${item.id}" class="gal-alt" value="${esc(item.alt_text)}" placeholder="Alt text">
+          <label for="gal-layout-${item.id}">Layout</label>
+          <select id="gal-layout-${item.id}" name="gal-layout-${item.id}" class="gal-layout">
             <option value="normal" ${item.layout === "normal" ? "selected" : ""}>Normal</option>
             <option value="wide" ${item.layout === "wide" ? "selected" : ""}>Wide</option>
             <option value="tall" ${item.layout === "tall" ? "selected" : ""}>Tall</option>
@@ -452,9 +467,9 @@
     $("#contact-list").innerHTML = content.contacts.map((item) => `
       <div class="item-card" data-id="${item.id}">
         <div class="form-row form-row--3">
-          <div class="form-group"><label>Label</label><input class="con-label" value="${esc(item.label)}"></div>
-          <div class="form-group"><label>Display Text</label><input class="con-value" value="${esc(item.value)}"></div>
-          <div class="form-group"><label>URL</label><input class="con-url" value="${esc(item.url)}"></div>
+          <div class="form-group"><label for="con-label-${item.id}">Label</label><input type="text" id="con-label-${item.id}" name="con-label-${item.id}" class="con-label" value="${esc(item.label)}"></div>
+          <div class="form-group"><label for="con-value-${item.id}">Display Text</label><input type="text" id="con-value-${item.id}" name="con-value-${item.id}" class="con-value" value="${esc(item.value)}"></div>
+          <div class="form-group"><label for="con-url-${item.id}">URL</label><input type="url" id="con-url-${item.id}" name="con-url-${item.id}" class="con-url" value="${esc(item.url)}"></div>
         </div>
         <div class="item-card-actions">
           <button class="btn btn-primary btn-sm save-con">Save</button>

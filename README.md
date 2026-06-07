@@ -2,33 +2,40 @@
 
 A personal portfolio site with a **database-backed admin panel** — update your info and upload photos through a web UI, no HTML editing required.
 
+Uses **Neon PostgreSQL** for storage (works on Vercel serverless and locally).
+
 ## Features
 
 - Public portfolio page (profile, education, work, experience, photo gallery, contact)
 - Admin dashboard at `/admin` for easy content management
-- SQLite database — no separate database server needed
+- Neon PostgreSQL database (cloud, serverless-friendly)
 - Image upload for profile photo and gallery
 - Modern, responsive design
 
 ## Quick Start
 
 ```bash
-# Option 1: use start script (recommended)
-chmod +x start.sh
-./start.sh
-
-# Option 2: manual
+# 1. Install dependencies
 npm install
-cp .env.example .env   # edit ADMIN_PASSWORD
-npm start
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env — set DATABASE_URL (Neon), ADMIN_PASSWORD, SESSION_SECRET
+
+# 3. Start the server
+./start.sh
 ```
+
+**Get a free Neon database:** [neon.tech](https://neon.tech) → New Project → copy connection string into `DATABASE_URL`.
+
+**Local dev without Neon:** set `USE_SQLITE=1` in `.env` (uses `data/site.db` locally). On Vercel, use Neon only — do not set `USE_SQLITE`.
 
 | URL | Purpose |
 |-----|---------|
 | http://localhost:8637 | Public portfolio page |
 | http://localhost:8637/admin | Admin panel |
 
-**Default admin password:** `admin123` (change it in `.env`)
+**Admin password:** set only in `ADMIN_PASSWORD` in `.env` (local) or Vercel env vars — not stored in the database.
 
 ## How to Update Content
 
@@ -60,7 +67,7 @@ Uploaded images are stored in `public/uploads/`. Supported formats: JPG, PNG, We
 ```
 personal-webpage/
 ├── server.js              Express server
-├── db/database.js         SQLite schema & queries
+├── db/database.js         Neon PostgreSQL schema & queries
 ├── routes/                API endpoints
 ├── public/
 │   ├── index.html         Public page shell
@@ -68,9 +75,9 @@ personal-webpage/
 │   ├── js/app.js          Renders page from API
 │   ├── admin/             Admin dashboard UI
 │   ├── images/            Default placeholder images
-│   └── uploads/           Your uploaded photos
-├── data/site.db           SQLite database (auto-created)
-└── .env                   Configuration
+│   └── uploads/           Uploaded photos (local dev)
+├── .env                   DATABASE_URL, secrets
+└── start.sh               Start script
 ```
 
 ## Development
@@ -87,8 +94,8 @@ npm run dev    # auto-restart on file changes (Node --watch)
 
 ## Deploy
 
-- **Local / VPS / Railway / Render:** use `./start.sh`
-- **Vercel:** see [DEPLOY_VERCEL.md](./DEPLOY_VERCEL.md) (includes limitations and migration options)
+- **Vercel + Neon:** see [DEPLOY_VERCEL.md](./DEPLOY_VERCEL.md)
+- **Railway / Render / VPS:** use `./start.sh` with `DATABASE_URL` set
 
 ## Link to GitHub
 
@@ -111,4 +118,4 @@ Replace `YOUR_USERNAME` with your GitHub username. Use SSH if you prefer:
 git remote add origin git@github.com:YOUR_USERNAME/personal-webpage.git
 ```
 
-**Note:** `.env` and `data/site.db` are gitignored — set `ADMIN_PASSWORD` and `SESSION_SECRET` again on any server you deploy to.
+**Note:** `.env` is gitignored — set `DATABASE_URL`, `ADMIN_PASSWORD`, and `SESSION_SECRET` on any server you deploy to.

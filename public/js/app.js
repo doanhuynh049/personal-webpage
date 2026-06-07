@@ -12,6 +12,57 @@
       .replace(/"/g, "&quot;");
   }
 
+  /** Turn structured job/edu text into HTML (blocks separated by blank lines). */
+  function formatRichContent(text) {
+    if (!text) return "";
+    const blocks = text.trim().split(/\n\n+/);
+
+    return blocks.map((block) => {
+      const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+      if (lines.length === 0) return "";
+
+      // Location line: "City · On-site"
+      if (lines.length === 1 && lines[0].includes("·") && !lines[0].startsWith("•") && !lines[0].startsWith("Tech:")) {
+        return `<p class="content-location">${escapeHtml(lines[0])}</p>`;
+      }
+
+      // Tech line
+      if (lines.length === 1 && lines[0].startsWith("Tech:")) {
+        const skills = lines[0].replace(/^Tech:\s*/i, "").split(",").map((s) => s.trim()).filter(Boolean);
+        return `<div class="content-tags">${skills.map((s) => `<span class="tag">${escapeHtml(s)}</span>`).join("")}</div>`;
+      }
+
+      // Bullet-only block
+      if (lines.every((l) => l.startsWith("• "))) {
+        return `<ul class="content-list">${lines.map((l) => `<li>${escapeHtml(l.slice(2))}</li>`).join("")}</ul>`;
+      }
+
+      // Project block: title [, subtitle] + bullets
+      const bullets = lines.filter((l) => l.startsWith("• "));
+      const nonBullets = lines.filter((l) => !l.startsWith("• "));
+
+      if (bullets.length > 0 && nonBullets.length >= 1) {
+        const title = nonBullets[0];
+        const subtitle = nonBullets.length > 1 ? nonBullets.slice(1).join(" ") : null;
+        return `<div class="content-block">
+          <h4 class="content-block-title">${escapeHtml(title)}</h4>
+          ${subtitle && !subtitle.startsWith("•") ? `<p class="content-block-desc">${escapeHtml(subtitle)}</p>` : ""}
+          <ul class="content-list">${bullets.map((l) => `<li>${escapeHtml(l.slice(2))}</li>`).join("")}</ul>
+        </div>`;
+      }
+
+      // Title + single subtitle (no bullets)
+      if (lines.length === 2 && !lines[1].startsWith("•")) {
+        return `<div class="content-block">
+          <h4 class="content-block-title">${escapeHtml(lines[0])}</h4>
+          <p class="content-block-desc">${escapeHtml(lines[1])}</p>
+        </div>`;
+      }
+
+      return `<p class="content-paragraph">${escapeHtml(lines.join(" "))}</p>`;
+    }).join("");
+  }
+
   function layoutClass(layout) {
     if (layout === "wide") return "gallery-item--wide";
     if (layout === "tall") return "gallery-item--tall";
@@ -92,7 +143,7 @@
                   <time>${escapeHtml(item.period)}</time>
                   <h3>${escapeHtml(item.title)}</h3>
                   <p class="timeline-place">${escapeHtml(item.institution)}</p>
-                  <p>${escapeHtml(item.description)}</p>
+                  <div class="timeline-desc">${formatRichContent(item.description)}</div>
                 </article>
               `).join("")}
             </div>
@@ -105,13 +156,17 @@
               <span class="section-label">${escapeHtml(sections.work?.label)}</span>
               <h2>${escapeHtml(sections.work?.heading)}</h2>
             </header>
-            <div class="cards">
+            <div class="career-list">
               ${jobs.map((item) => `
-                <article class="card">
-                  <div class="card-meta"><time>${escapeHtml(item.period)}</time></div>
-                  <h3>${escapeHtml(item.title)}</h3>
-                  <p class="card-subtitle">${escapeHtml(item.company)}</p>
-                  <p>${escapeHtml(item.description)}</p>
+                <article class="career-card">
+                  <header class="career-card-header">
+                    <time class="career-period">${escapeHtml(item.period)}</time>
+                    <div>
+                      <h3 class="career-title">${escapeHtml(item.title)}</h3>
+                      <p class="career-company">${escapeHtml(item.company)}</p>
+                    </div>
+                  </header>
+                  <div class="career-body">${formatRichContent(item.description)}</div>
                 </article>
               `).join("")}
             </div>

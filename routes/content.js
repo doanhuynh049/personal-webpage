@@ -1,171 +1,292 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
-const { db, getPublicContent } = require("../db/database");
+const { getSql, getPublicContent } = require("../db/database");
 const { requireAuth } = require("../middleware/auth");
-const { upload } = require("../middleware/upload");
+const { upload, getUploadDir } = require("../middleware/upload");
 
 const router = express.Router();
 
-router.get("/content", (_req, res) => {
-  res.json(getPublicContent());
-});
-
-router.put("/profile", requireAuth, (req, res) => {
-  const { name, greeting, tagline, intro, profile_image } = req.body;
-  db.prepare(`
-    UPDATE profile SET name = ?, greeting = ?, tagline = ?, intro = ?, profile_image = ?
-    WHERE id = 1
-  `).run(name, greeting, tagline, intro, profile_image);
-  res.json({ ok: true });
-});
-
-router.put("/about", requireAuth, (req, res) => {
-  const { heading, bio, location, focus, currently } = req.body;
-  db.prepare(`
-    UPDATE about SET heading = ?, bio = ?, location = ?, focus = ?, currently = ?
-    WHERE id = 1
-  `).run(heading, bio, location, focus, currently);
-  res.json({ ok: true });
-});
-
-router.put("/sections/:key", requireAuth, (req, res) => {
-  const { label, heading, description } = req.body;
-  db.prepare(`
-    UPDATE sections SET label = ?, heading = ?, description = ?
-    WHERE key = ?
-  `).run(label, heading, description, req.params.key);
-  res.json({ ok: true });
-});
-
-router.post("/education", requireAuth, (req, res) => {
-  const { period, title, institution, description, sort_order } = req.body;
-  const result = db.prepare(`
-    INSERT INTO education (period, title, institution, description, sort_order)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(period, title, institution, description, sort_order ?? 0);
-  res.json({ id: result.lastInsertRowid });
-});
-
-router.put("/education/:id", requireAuth, (req, res) => {
-  const { period, title, institution, description, sort_order } = req.body;
-  db.prepare(`
-    UPDATE education SET period = ?, title = ?, institution = ?, description = ?, sort_order = ?
-    WHERE id = ?
-  `).run(period, title, institution, description, sort_order ?? 0, req.params.id);
-  res.json({ ok: true });
-});
-
-router.delete("/education/:id", requireAuth, (req, res) => {
-  db.prepare("DELETE FROM education WHERE id = ?").run(req.params.id);
-  res.json({ ok: true });
-});
-
-router.post("/jobs", requireAuth, (req, res) => {
-  const { period, title, company, description, sort_order } = req.body;
-  const result = db.prepare(`
-    INSERT INTO jobs (period, title, company, description, sort_order)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(period, title, company, description, sort_order ?? 0);
-  res.json({ id: result.lastInsertRowid });
-});
-
-router.put("/jobs/:id", requireAuth, (req, res) => {
-  const { period, title, company, description, sort_order } = req.body;
-  db.prepare(`
-    UPDATE jobs SET period = ?, title = ?, company = ?, description = ?, sort_order = ?
-    WHERE id = ?
-  `).run(period, title, company, description, sort_order ?? 0, req.params.id);
-  res.json({ ok: true });
-});
-
-router.delete("/jobs/:id", requireAuth, (req, res) => {
-  db.prepare("DELETE FROM jobs WHERE id = ?").run(req.params.id);
-  res.json({ ok: true });
-});
-
-router.post("/experiences", requireAuth, (req, res) => {
-  const { title, description, is_skills, sort_order } = req.body;
-  const result = db.prepare(`
-    INSERT INTO experiences (title, description, is_skills, sort_order)
-    VALUES (?, ?, ?, ?)
-  `).run(title, description, is_skills ? 1 : 0, sort_order ?? 0);
-  res.json({ id: result.lastInsertRowid });
-});
-
-router.put("/experiences/:id", requireAuth, (req, res) => {
-  const { title, description, is_skills, sort_order } = req.body;
-  db.prepare(`
-    UPDATE experiences SET title = ?, description = ?, is_skills = ?, sort_order = ?
-    WHERE id = ?
-  `).run(title, description, is_skills ? 1 : 0, sort_order ?? 0, req.params.id);
-  res.json({ ok: true });
-});
-
-router.delete("/experiences/:id", requireAuth, (req, res) => {
-  db.prepare("DELETE FROM experiences WHERE id = ?").run(req.params.id);
-  res.json({ ok: true });
-});
-
-router.post("/experiences/:id/skills", requireAuth, (req, res) => {
-  const { name } = req.body;
-  const result = db.prepare("INSERT INTO skills (experience_id, name) VALUES (?, ?)").run(req.params.id, name);
-  res.json({ id: result.lastInsertRowid });
-});
-
-router.delete("/skills/:id", requireAuth, (req, res) => {
-  db.prepare("DELETE FROM skills WHERE id = ?").run(req.params.id);
-  res.json({ ok: true });
-});
-
-router.post("/gallery", requireAuth, (req, res) => {
-  const { image_path, caption, alt_text, layout, sort_order } = req.body;
-  const result = db.prepare(`
-    INSERT INTO gallery (image_path, caption, alt_text, layout, sort_order)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(image_path, caption, alt_text, layout || "normal", sort_order ?? 0);
-  res.json({ id: result.lastInsertRowid });
-});
-
-router.put("/gallery/:id", requireAuth, (req, res) => {
-  const { image_path, caption, alt_text, layout, sort_order } = req.body;
-  db.prepare(`
-    UPDATE gallery SET image_path = ?, caption = ?, alt_text = ?, layout = ?, sort_order = ?
-    WHERE id = ?
-  `).run(image_path, caption, alt_text, layout || "normal", sort_order ?? 0, req.params.id);
-  res.json({ ok: true });
-});
-
-router.delete("/gallery/:id", requireAuth, (req, res) => {
-  const item = db.prepare("SELECT image_path FROM gallery WHERE id = ?").get(req.params.id);
-  if (item && item.image_path.startsWith("/uploads/")) {
-    const filePath = path.join(__dirname, "..", "public", item.image_path);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+router.get("/content", async (_req, res, next) => {
+  try {
+    res.json(await getPublicContent());
+  } catch (err) {
+    next(err);
   }
-  db.prepare("DELETE FROM gallery WHERE id = ?").run(req.params.id);
-  res.json({ ok: true });
 });
 
-router.post("/contacts", requireAuth, (req, res) => {
-  const { label, value, url, sort_order } = req.body;
-  const result = db.prepare(`
-    INSERT INTO contacts (label, value, url, sort_order) VALUES (?, ?, ?, ?)
-  `).run(label, value, url, sort_order ?? 0);
-  res.json({ id: result.lastInsertRowid });
+router.put("/profile", requireAuth, async (req, res, next) => {
+  try {
+    const { name, greeting, tagline, intro, profile_image } = req.body;
+    const sql = getSql();
+    await sql`
+      UPDATE profile SET name = ${name}, greeting = ${greeting}, tagline = ${tagline},
+      intro = ${intro}, profile_image = ${profile_image}
+      WHERE id = 1
+    `;
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
 });
 
-router.put("/contacts/:id", requireAuth, (req, res) => {
-  const { label, value, url, sort_order } = req.body;
-  db.prepare(`
-    UPDATE contacts SET label = ?, value = ?, url = ?, sort_order = ?
-    WHERE id = ?
-  `).run(label, value, url, sort_order ?? 0, req.params.id);
-  res.json({ ok: true });
+router.put("/about", requireAuth, async (req, res, next) => {
+  try {
+    const { heading, bio, location, focus, currently } = req.body;
+    const sql = getSql();
+    await sql`
+      UPDATE about SET heading = ${heading}, bio = ${bio}, location = ${location},
+      focus = ${focus}, currently = ${currently}
+      WHERE id = 1
+    `;
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
 });
 
-router.delete("/contacts/:id", requireAuth, (req, res) => {
-  db.prepare("DELETE FROM contacts WHERE id = ?").run(req.params.id);
-  res.json({ ok: true });
+router.put("/sections/:key", requireAuth, async (req, res, next) => {
+  try {
+    const { label, heading, description } = req.body;
+    const sql = getSql();
+    await sql`
+      UPDATE sections SET label = ${label}, heading = ${heading}, description = ${description}
+      WHERE section_key = ${req.params.key}
+    `;
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/education", requireAuth, async (req, res, next) => {
+  try {
+    const { period, title, institution, description, sort_order } = req.body;
+    const sql = getSql();
+    const rows = await sql`
+      INSERT INTO education (period, title, institution, description, sort_order)
+      VALUES (${period}, ${title}, ${institution}, ${description}, ${sort_order ?? 0})
+      RETURNING id
+    `;
+    res.json({ id: rows[0].id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put("/education/:id", requireAuth, async (req, res, next) => {
+  try {
+    const { period, title, institution, description, sort_order } = req.body;
+    const sql = getSql();
+    await sql`
+      UPDATE education SET period = ${period}, title = ${title}, institution = ${institution},
+      description = ${description}, sort_order = ${sort_order ?? 0}
+      WHERE id = ${req.params.id}
+    `;
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/education/:id", requireAuth, async (req, res, next) => {
+  try {
+    const sql = getSql();
+    await sql`DELETE FROM education WHERE id = ${req.params.id}`;
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/jobs", requireAuth, async (req, res, next) => {
+  try {
+    const { period, title, company, description, sort_order } = req.body;
+    const sql = getSql();
+    const rows = await sql`
+      INSERT INTO jobs (period, title, company, description, sort_order)
+      VALUES (${period}, ${title}, ${company}, ${description}, ${sort_order ?? 0})
+      RETURNING id
+    `;
+    res.json({ id: rows[0].id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put("/jobs/:id", requireAuth, async (req, res, next) => {
+  try {
+    const { period, title, company, description, sort_order } = req.body;
+    const sql = getSql();
+    await sql`
+      UPDATE jobs SET period = ${period}, title = ${title}, company = ${company},
+      description = ${description}, sort_order = ${sort_order ?? 0}
+      WHERE id = ${req.params.id}
+    `;
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/jobs/:id", requireAuth, async (req, res, next) => {
+  try {
+    const sql = getSql();
+    await sql`DELETE FROM jobs WHERE id = ${req.params.id}`;
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/experiences", requireAuth, async (req, res, next) => {
+  try {
+    const { title, description, is_skills, sort_order } = req.body;
+    const sql = getSql();
+    const rows = await sql`
+      INSERT INTO experiences (title, description, is_skills, sort_order)
+      VALUES (${title}, ${description}, ${!!is_skills}, ${sort_order ?? 0})
+      RETURNING id
+    `;
+    res.json({ id: rows[0].id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put("/experiences/:id", requireAuth, async (req, res, next) => {
+  try {
+    const { title, description, is_skills, sort_order } = req.body;
+    const sql = getSql();
+    await sql`
+      UPDATE experiences SET title = ${title}, description = ${description},
+      is_skills = ${!!is_skills}, sort_order = ${sort_order ?? 0}
+      WHERE id = ${req.params.id}
+    `;
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/experiences/:id", requireAuth, async (req, res, next) => {
+  try {
+    const sql = getSql();
+    await sql`DELETE FROM experiences WHERE id = ${req.params.id}`;
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/experiences/:id/skills", requireAuth, async (req, res, next) => {
+  try {
+    const { name } = req.body;
+    const sql = getSql();
+    const rows = await sql`
+      INSERT INTO skills (experience_id, name) VALUES (${req.params.id}, ${name})
+      RETURNING id
+    `;
+    res.json({ id: rows[0].id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/skills/:id", requireAuth, async (req, res, next) => {
+  try {
+    const sql = getSql();
+    await sql`DELETE FROM skills WHERE id = ${req.params.id}`;
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/gallery", requireAuth, async (req, res, next) => {
+  try {
+    const { image_path, caption, alt_text, layout, sort_order } = req.body;
+    const sql = getSql();
+    const rows = await sql`
+      INSERT INTO gallery (image_path, caption, alt_text, layout, sort_order)
+      VALUES (${image_path}, ${caption}, ${alt_text}, ${layout || "normal"}, ${sort_order ?? 0})
+      RETURNING id
+    `;
+    res.json({ id: rows[0].id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put("/gallery/:id", requireAuth, async (req, res, next) => {
+  try {
+    const { image_path, caption, alt_text, layout, sort_order } = req.body;
+    const sql = getSql();
+    await sql`
+      UPDATE gallery SET image_path = ${image_path}, caption = ${caption}, alt_text = ${alt_text},
+      layout = ${layout || "normal"}, sort_order = ${sort_order ?? 0}
+      WHERE id = ${req.params.id}
+    `;
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/gallery/:id", requireAuth, async (req, res, next) => {
+  try {
+    const sql = getSql();
+    const rows = await sql`SELECT image_path FROM gallery WHERE id = ${req.params.id}`;
+    const item = rows[0];
+    if (item && item.image_path.startsWith("/uploads/")) {
+      const filePath = path.join(getUploadDir(), path.basename(item.image_path));
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+    await sql`DELETE FROM gallery WHERE id = ${req.params.id}`;
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/contacts", requireAuth, async (req, res, next) => {
+  try {
+    const { label, value, url, sort_order } = req.body;
+    const sql = getSql();
+    const rows = await sql`
+      INSERT INTO contacts (label, value, url, sort_order)
+      VALUES (${label}, ${value}, ${url}, ${sort_order ?? 0})
+      RETURNING id
+    `;
+    res.json({ id: rows[0].id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put("/contacts/:id", requireAuth, async (req, res, next) => {
+  try {
+    const { label, value, url, sort_order } = req.body;
+    const sql = getSql();
+    await sql`
+      UPDATE contacts SET label = ${label}, value = ${value}, url = ${url},
+      sort_order = ${sort_order ?? 0}
+      WHERE id = ${req.params.id}
+    `;
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/contacts/:id", requireAuth, async (req, res, next) => {
+  try {
+    const sql = getSql();
+    await sql`DELETE FROM contacts WHERE id = ${req.params.id}`;
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.post("/upload", requireAuth, upload.single("image"), (req, res) => {

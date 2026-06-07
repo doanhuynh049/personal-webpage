@@ -1,12 +1,9 @@
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs");
-
-const uploadDir = path.join(__dirname, "..", "public", "uploads");
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+const { getUploadDir } = require("../config/paths");
 
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
+  destination: (_req, _file, cb) => cb(null, getUploadDir()),
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     const name = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
@@ -30,4 +27,4 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-module.exports = { upload, uploadDir };
+module.exports = { upload, getUploadDir };

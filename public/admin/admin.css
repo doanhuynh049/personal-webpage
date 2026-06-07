@@ -18,6 +18,18 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+[hidden] {
+  display: none !important;
+}
+
+body.is-authenticated .login-screen {
+  display: none !important;
+}
+
+body:not(.is-authenticated) .dashboard {
+  display: none !important;
+}
+
 body {
   font-family: var(--font);
   background: var(--bg);
@@ -254,7 +266,8 @@ input, textarea, select, button {
   margin-bottom: 1.25rem;
 }
 
-.form-group label {
+.form-group label,
+.form-label {
   display: block;
   font-size: 0.8rem;
   font-weight: 600;
@@ -464,6 +477,16 @@ input, textarea, select, button {
   padding: 0.85rem;
 }
 
+.gallery-admin-body label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .gallery-admin-body input,
 .gallery-admin-body select {
   width: 100%;
@@ -503,6 +526,18 @@ input, textarea, select, button {
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* ---- Responsive ---- */

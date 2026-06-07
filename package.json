@@ -4,14 +4,17 @@
   "description": "Personal portfolio with database-backed admin panel",
   "main": "server.js",
   "scripts": {
-    "start": "node --experimental-sqlite server.js",
-    "dev": "node --watch --experimental-sqlite server.js"
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node --experimental-sqlite scripts/seed-personal-data.js"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
+    "@neondatabase/serverless": "^0.10.4",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-session": "^1.18.1",
-    "multer": "^1.4.5-lts.1"
+    "multer": "^1.4.5-lts.1",
+    "pg": "^8.21.0",
+    "ws": "^8.21.0"
   }
 }

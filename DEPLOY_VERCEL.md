@@ -1,210 +1,123 @@
-# Deploy to Vercel
+# Deploy to Vercel with Neon Database
 
-This guide walks through deploying your personal webpage to [Vercel](https://vercel.com).
+This app uses **Neon PostgreSQL** for data storage — required for Vercel serverless deployment.
 
-## Important: know the limits first
+## Step 1: Create a Neon database
 
-This app uses **SQLite** (file database) and **local file uploads**. Vercel runs **serverless functions** with a **read-only filesystem** (except `/tmp`, which is wiped between invocations).
+1. Go to [neon.tech](https://neon.tech) and sign up (free tier available)
+2. Click **New Project**
+3. Choose a name and region (pick one close to your Vercel region)
+4. After creation, copy the **Connection string** (PostgreSQL)
+   - It looks like: `postgresql://user:pass@ep-xxx.region.aws.neon.tech/neondb?sslmode=require`
 
-| Feature | Works on Vercel? | Notes |
-|---------|------------------|-------|
-| Public page (read-only) | Yes | After DB is seeded |
-| Admin login & edit text | Partially | Changes may not persist |
-| SQLite database | No (as-is) | File cannot be written reliably |
-| Image uploads | No (as-is) | `public/uploads/` is not persistent |
+## Step 2: Set environment variables on Vercel
 
-**Recommendation:**
+In **Vercel → Project → Settings → Environment Variables**, add:
 
-- **Best on Vercel:** use an external database ([Turso](https://turso.tech), [Neon](https://neon.tech)) and file storage ([Vercel Blob](https://vercel.com/docs/storage/vercel-blob)) — requires code changes.
-- **Easiest for this project as-is:** deploy to [Railway](https://railway.app), [Render](https://render.com), or a VPS where SQLite and uploads work normally. Use `./start.sh` on those platforms.
+| Variable | Value | Required |
+|----------|-------|----------|
+| `DATABASE_URL` | Your Neon connection string | **Yes** |
+| `ADMIN_PASSWORD` | Strong admin password | **Yes** |
+| `SESSION_SECRET` | Random string (`openssl rand -hex 32`) | **Yes** |
 
-The steps below deploy the current app to Vercel for testing or demo purposes. For a production site with admin + uploads, use Railway/Render or migrate storage first.
+Do **not** set `USE_SQLITE` on Vercel — that is for local development only.
 
----
+Apply to **Production**, **Preview**, and **Development**.
 
-## Prerequisites
-
-1. A [Vercel account](https://vercel.com/signup) (GitHub login works)
-2. [Vercel CLI](https://vercel.com/docs/cli) (optional but useful):
-
-   ```bash
-   npm i -g vercel
-   ```
-
-3. Project pushed to GitHub (recommended for auto-deploy)
-
----
-
-## Step 1: Prepare environment variables
-
-In Vercel, set these under **Project → Settings → Environment Variables**:
-
-| Variable | Example | Required |
-|----------|---------|----------|
-| `ADMIN_PASSWORD` | `your-strong-password` | Yes |
-| `SESSION_SECRET` | random 32+ char string | Yes |
-| `PORT` | (Vercel sets this automatically) | No |
-
-Generate a session secret:
+## Step 3: Deploy
 
 ```bash
-openssl rand -hex 32
+git add .
+git commit -m "Use Neon PostgreSQL for Vercel"
+git push
 ```
 
----
-
-## Step 2: Deploy via GitHub (recommended)
-
-1. Push your project to GitHub:
-
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git remote add origin https://github.com/YOUR_USER/personal-webpage.git
-   git push -u origin main
-   ```
-
-2. Go to [vercel.com/new](https://vercel.com/new)
-3. **Import** your GitHub repository
-4. Vercel auto-detects Node.js. Keep defaults:
-   - **Framework Preset:** Other
-   - **Build Command:** (leave empty or `npm install`)
-   - **Output Directory:** (leave empty)
-5. Add environment variables (`ADMIN_PASSWORD`, `SESSION_SECRET`)
-6. Click **Deploy**
-
-Your site will be live at `https://your-project.vercel.app`.
-
----
-
-## Step 3: Deploy via CLI (alternative)
-
-From the project folder:
+Or via CLI:
 
 ```bash
-cd personal-webpage
-vercel login
-vercel
-```
-
-Follow the prompts. For production:
-
-```bash
+vercel env add DATABASE_URL
+vercel env add ADMIN_PASSWORD
+vercel env add SESSION_SECRET
 vercel --prod
 ```
 
-Set env vars via CLI:
+On first request, the app **auto-creates tables** and **seeds sample content**.
 
-```bash
-vercel env add ADMIN_PASSWORD
-vercel env add SESSION_SECRET
-```
-
----
-
-## Step 4: Verify deployment
-
-After deploy, check:
+## Step 4: Verify
 
 | URL | Expected |
 |-----|----------|
-| `https://your-project.vercel.app/` | Public portfolio page |
-| `https://your-project.vercel.app/admin` | Admin login |
-| `https://your-project.vercel.app/api/content` | JSON content API |
+| `https://your-app.vercel.app/` | Public portfolio |
+| `https://your-app.vercel.app/admin` | Admin login |
+| `https://your-app.vercel.app/api/content` | JSON data |
 
-Sign in to `/admin` with your `ADMIN_PASSWORD`.
-
----
-
-## Step 5: Custom domain (optional)
-
-1. Vercel dashboard → **Project → Settings → Domains**
-2. Add your domain (e.g. `www.yourname.com`)
-3. Update DNS records as shown by Vercel
-4. HTTPS is automatic
+Sign in with your `ADMIN_PASSWORD`.
 
 ---
 
-## Project files for Vercel
+## Local development with Neon
 
-These files are already included:
+Add to your `.env` file:
 
-- **`vercel.json`** — routes all requests to `server.js` as a serverless function
-- **`server.js`** — exports the Express app for Vercel; runs `listen()` only when started locally
-
-Local start (unchanged):
-
-```bash
-./start.sh
-# or
-npm start
+```env
+DATABASE_URL=postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require
+ADMIN_PASSWORD=admin123
+SESSION_SECRET=local-dev-secret
+PORT=8637
 ```
 
----
+Then start:
 
-## Production options on Vercel
+```bash
+npm install
+./start.sh
+```
 
-To run admin + database + uploads reliably on Vercel, migrate:
-
-### Database → Turso (SQLite-compatible cloud)
-
-1. Create a database at [turso.tech](https://turso.tech)
-2. Replace `node:sqlite` file DB with `@libsql/client`
-3. Set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in Vercel env
-
-### Images → Vercel Blob
-
-1. Enable Blob storage in your Vercel project
-2. Replace `multer` disk storage with `@vercel/blob` upload
-3. Store returned URLs in the database
-
-### Sessions
-
-Serverless functions are stateless. For reliable login across instances, use:
-
-- `@vercel/kv` or Redis for session storage, or
-- JWT tokens instead of `express-session`
+You can use the **same Neon database** for local dev, or create a separate Neon branch for development.
 
 ---
 
-## Easier alternative: Railway or Render
+## Neon + Vercel integration (optional)
 
-If you want the current app **without code changes**:
+Vercel marketplace can link Neon automatically:
 
-### Railway
+1. Vercel dashboard → **Storage** → **Create Database** → **Neon**
+2. This auto-sets `DATABASE_URL` on your project
 
-1. [railway.app](https://railway.app) → New Project → Deploy from GitHub
-2. Set **Start Command:** `./start.sh` or `npm start`
-3. Add env vars: `ADMIN_PASSWORD`, `SESSION_SECRET`
-4. Railway provides a persistent volume — mount it to `/app/data` and `/app/public/uploads` for persistence
+---
 
-### Render
+## Remaining limitation: image uploads
 
-1. [render.com](https://render.com) → New **Web Service** → connect repo
-2. **Build Command:** `npm install`
-3. **Start Command:** `./start.sh`
-4. Add env vars and attach a **disk** for `data/` and `public/uploads/`
+Database content **persists** on Neon. However, **uploaded images** still go to `/tmp` on Vercel and **won't persist** across deployments.
+
+| Content type | Persists on Vercel? |
+|--------------|---------------------|
+| Text (profile, jobs, etc.) | Yes (Neon) |
+| Default SVG images | Yes (bundled in repo) |
+| Uploaded photos | No — use [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) for production uploads |
 
 ---
 
 ## Troubleshooting
 
-| Problem | Fix |
-|---------|-----|
-| `ExperimentalWarning: SQLite` | Normal on Node 22; Vercel uses Node 20+ — may need `--experimental-sqlite` in start script or migrate to Turso |
-| Admin login works once then fails | Session not shared across serverless instances — use Redis/KV or JWT |
-| Saves disappear after refresh | SQLite file not persisted — use Turso or deploy to Railway/Render with disk |
-| Uploads fail | Read-only filesystem — use Vercel Blob or external storage |
-| 404 on routes | Ensure `vercel.json` routes all paths to `server.js` |
+| Error | Fix |
+|-------|-----|
+| `500 FUNCTION_INVOCATION_FAILED` | Check `DATABASE_URL` is set in Vercel env vars |
+| `Database unavailable` | Verify Neon connection string includes `?sslmode=require` |
+| Tables empty after deploy | Visit the site once — seed runs on first init |
+| Admin login fails | Confirm `ADMIN_PASSWORD` env var matches what you type |
+| Login works then fails | Serverless sessions — may need Redis/KV for production |
+
+### View logs
+
+Vercel → **Deployments** → click latest → **Functions** → **Logs**
+
+Look for `Database unavailable` or connection errors.
 
 ---
 
-## Checklist before going live
+## Environment variables checklist
 
-- [ ] Change `ADMIN_PASSWORD` to a strong password
-- [ ] Set a random `SESSION_SECRET`
-- [ ] Choose hosting: Vercel (needs storage migration) or Railway/Render (works as-is)
-- [ ] Test `/admin` login and saving content
-- [ ] Test image uploads
-- [ ] Add custom domain (optional)
+- [ ] `DATABASE_URL` — Neon PostgreSQL connection string
+- [ ] `ADMIN_PASSWORD` — changed from default
+- [ ] `SESSION_SECRET` — random 32+ character string

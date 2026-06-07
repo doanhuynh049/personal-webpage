@@ -20,7 +20,7 @@
       </div>
       <div class="form-group">
         <label for="password">Password</label>
-        <input type="password" id="password" placeholder="Enter admin password" required autofocus>
+        <input type="password" id="password" name="password" autocomplete="current-password" placeholder="Enter admin password" required autofocus>
       </div>
       <button type="submit" class="btn btn-primary btn-block">Sign In</button>
       <p class="login-error" id="login-error" hidden></p>
@@ -64,31 +64,29 @@
           <div class="card-form">
             <div class="form-row">
               <div class="form-group">
-                <label>Name</label>
-                <input type="text" id="profile-name">
+                <label for="profile-name">Name</label>
+                <input type="text" id="profile-name" name="profile-name">
               </div>
               <div class="form-group">
-                <label>Greeting</label>
-                <input type="text" id="profile-greeting">
+                <label for="profile-greeting">Greeting</label>
+                <input type="text" id="profile-greeting" name="profile-greeting">
               </div>
             </div>
             <div class="form-group">
-              <label>Tagline</label>
-              <input type="text" id="profile-tagline" placeholder="Student · Developer · Photographer">
+              <label for="profile-tagline">Tagline</label>
+              <input type="text" id="profile-tagline" name="profile-tagline" placeholder="Student · Developer · Photographer">
             </div>
             <div class="form-group">
-              <label>Introduction</label>
-              <textarea id="profile-intro" rows="3"></textarea>
+              <label for="profile-intro">Introduction</label>
+              <textarea id="profile-intro" name="profile-intro" rows="3"></textarea>
             </div>
             <div class="form-group">
-              <label>Profile Photo</label>
+              <span class="form-label">Profile Photo</span>
               <div class="image-upload">
                 <img id="profile-preview" class="image-preview" src="" alt="Profile preview">
                 <div class="image-upload-actions">
-                  <label class="btn btn-secondary btn-sm">
-                    Upload Photo
-                    <input type="file" id="profile-upload" accept="image/*" hidden>
-                  </label>
+                  <label for="profile-upload" class="btn btn-secondary btn-sm">Upload Photo</label>
+                  <input type="file" id="profile-upload" name="profile-photo" accept="image/*" hidden>
                   <span class="hint">JPG, PNG, WebP up to 10 MB</span>
                 </div>
               </div>
@@ -101,25 +99,25 @@
         <section class="panel" id="panel-about">
           <div class="card-form">
             <div class="form-group">
-              <label>Section Heading</label>
-              <input type="text" id="about-heading">
+              <label for="about-heading">Section Heading</label>
+              <input type="text" id="about-heading" name="about-heading">
             </div>
             <div class="form-group">
-              <label>Bio</label>
-              <textarea id="about-bio" rows="4"></textarea>
+              <label for="about-bio">Bio</label>
+              <textarea id="about-bio" name="about-bio" rows="4"></textarea>
             </div>
             <div class="form-row form-row--3">
               <div class="form-group">
-                <label>Location</label>
-                <input type="text" id="about-location">
+                <label for="about-location">Location</label>
+                <input type="text" id="about-location" name="about-location">
               </div>
               <div class="form-group">
-                <label>Focus</label>
-                <input type="text" id="about-focus">
+                <label for="about-focus">Focus</label>
+                <input type="text" id="about-focus" name="about-focus">
               </div>
               <div class="form-group">
-                <label>Currently</label>
-                <input type="text" id="about-currently">
+                <label for="about-currently">Currently</label>
+                <input type="text" id="about-currently" name="about-currently">
               </div>
             </div>
             <button class="btn btn-primary" id="save-about">Save About</button>
@@ -153,10 +151,8 @@
         <!-- Gallery -->
         <section class="panel" id="panel-gallery">
           <div class="panel-toolbar">
-            <label class="btn btn-secondary btn-sm">
-              + Upload Photo
-              <input type="file" id="gallery-upload" accept="image/*" hidden>
-            </label>
+            <label for="gallery-upload" class="btn btn-secondary btn-sm">+ Upload Photo</label>
+            <input type="file" id="gallery-upload" name="gallery-photo" accept="image/*" hidden>
           </div>
           <div id="gallery-list" class="gallery-admin-grid"></div>
         </section>
