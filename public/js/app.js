@@ -69,8 +69,40 @@
     return "";
   }
 
+  const SKILL_CATEGORIES = {
+    languages: "Languages",
+    embedded: "Embedded",
+    tools: "Tools",
+    domains: "Domains",
+  };
+
+  function renderSkillsMatrix(skillsExp) {
+    if (!skillsExp?.skills?.length) return "";
+    const grouped = {};
+    for (const key of Object.keys(SKILL_CATEGORIES)) grouped[key] = [];
+    for (const skill of skillsExp.skills) {
+      const cat = SKILL_CATEGORIES[skill.category] ? skill.category : "tools";
+      grouped[cat].push(skill);
+    }
+    const groups = Object.entries(SKILL_CATEGORIES)
+      .map(([key, label]) => {
+        const items = grouped[key];
+        if (!items.length) return "";
+        return `
+          <div class="skills-matrix-group">
+            <h3 class="skills-matrix-label">${escapeHtml(label)}</h3>
+            <div class="tags">${items.map((s) => `<span class="tag">${escapeHtml(s.name)}</span>`).join("")}</div>
+          </div>`;
+      })
+      .join("");
+    if (!groups) return "";
+    return `<div class="skills-matrix">${groups}</div>`;
+  }
+
   function renderPage(data) {
     const { profile, about, sections, education, jobs, experiences, gallery, contacts } = data;
+    const projectExperiences = experiences.filter((e) => !e.is_skills);
+    const skillsExperience = experiences.find((e) => e.is_skills);
 
     document.title = `${profile.name} — Personal Page`;
     document.querySelector('meta[name="description"]').content =
@@ -105,6 +137,7 @@
               <div class="hero-actions">
                 <a href="#gallery" class="btn btn-primary">View My Photos</a>
                 <a href="#contact" class="btn btn-outline">Get in Touch</a>
+                <a href="/api/resume.pdf" class="btn btn-outline" download>Download Resume</a>
               </div>
             </div>
             <figure class="hero-photo">
@@ -180,18 +213,17 @@
               <h2>${escapeHtml(sections.experience?.heading)}</h2>
             </header>
             <div class="experience-list">
-              ${experiences.map((item, i) => `
+              ${projectExperiences.map((item, i) => `
                 <article class="experience-item">
                   <div class="experience-icon" aria-hidden="true">${String(i + 1).padStart(2, "0")}</div>
                   <div>
                     <h3>${escapeHtml(item.title)}</h3>
-                    ${item.is_skills
-                      ? `<div class="tags">${item.skills.map((s) => `<span class="tag">${escapeHtml(s.name)}</span>`).join("")}</div>`
-                      : `<p>${escapeHtml(item.description)}</p>`}
+                    <p>${escapeHtml(item.description)}</p>
                   </div>
                 </article>
               `).join("")}
             </div>
+            ${renderSkillsMatrix(skillsExperience)}
           </div>
         </section>
 

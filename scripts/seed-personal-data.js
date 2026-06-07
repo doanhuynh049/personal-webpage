@@ -122,24 +122,48 @@ const experiences = [
     sort_order: 3,
   },
   {
-    title: "Skills & Technologies",
+    title: "Skills Matrix",
     description: "",
     is_skills: true,
     sort_order: 4,
     skills: [
-      "C++",
-      "Java",
-      "Buildroot",
-      "Yocto",
-      "Linux BSP",
-      "Qt / Qt Creator",
-      "GTEST",
-      "LabVIEW",
-      "Wayland",
-      "Embedded Systems",
-      "UI Development",
-      "Automation Engineering",
+      { name: "C++", category: "languages" },
+      { name: "Java", category: "languages" },
+      { name: "Buildroot", category: "embedded" },
+      { name: "Yocto", category: "embedded" },
+      { name: "Linux BSP", category: "embedded" },
+      { name: "Wayland", category: "embedded" },
+      { name: "Qt / Qt Creator", category: "tools" },
+      { name: "GTEST", category: "tools" },
+      { name: "LabVIEW", category: "tools" },
+      { name: "Embedded Systems", category: "domains" },
+      { name: "STB UI Development", category: "domains" },
+      { name: "Automation Engineering", category: "domains" },
     ],
+  },
+];
+
+const roadmap = [
+  {
+    period: "2025 — 2026",
+    title: "Deepen STB accessibility & UI performance",
+    description: "Ship measurable Talking Guide improvements, profile UI bottlenecks, and document performance patterns for the STB platform team.",
+    status: "in_progress",
+    sort_order: 0,
+  },
+  {
+    period: "2026",
+    title: "Lead a cross-team UI platform initiative",
+    description: "Drive shared components, build standards, and mentor engineers on embedded UI best practices.",
+    status: "planned",
+    sort_order: 1,
+  },
+  {
+    period: "2027+",
+    title: "Staff / Principal embedded engineer path",
+    description: "Grow into system-level ownership across BSP, UI, and product delivery in consumer embedded devices.",
+    status: "planned",
+    sort_order: 2,
   },
 ];
 
@@ -163,11 +187,30 @@ function migrateSqliteSchema() {
   const { DatabaseSync } = require("node:sqlite");
   const path = require("path");
   const db = new DatabaseSync(path.join(__dirname, "../data/site.db"));
-  const cols = db.prepare("PRAGMA table_info(sections)").all().map((c) => c.name);
-  if (cols.includes("key") && !cols.includes("section_key")) {
+  const sectionCols = db.prepare("PRAGMA table_info(sections)").all().map((c) => c.name);
+  if (sectionCols.includes("key") && !sectionCols.includes("section_key")) {
     db.exec("ALTER TABLE sections RENAME COLUMN key TO section_key");
     console.log("Migrated sections table: key → section_key");
   }
+  const skillCols = db.prepare("PRAGMA table_info(skills)").all().map((c) => c.name);
+  if (skillCols.length && !skillCols.includes("category")) {
+    db.exec("ALTER TABLE skills ADD COLUMN category TEXT NOT NULL DEFAULT 'tools'");
+    console.log("Migrated skills: added category column");
+  }
+  if (skillCols.length && !skillCols.includes("sort_order")) {
+    db.exec("ALTER TABLE skills ADD COLUMN sort_order INTEGER DEFAULT 0");
+    console.log("Migrated skills: added sort_order column");
+  }
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS roadmap (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      period TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      status TEXT DEFAULT 'planned' CHECK (status IN ('planned', 'in_progress', 'completed')),
+      sort_order INTEGER DEFAULT 0
+    )
+  `);
 }
 
 async function seed() {
@@ -205,13 +248,14 @@ async function seed() {
     `;
   }
 
-  console.log("Replacing education, jobs, experience, gallery, contacts...");
+  console.log("Replacing education, jobs, experience, gallery, contacts, roadmap...");
   await sql`DELETE FROM skills`;
   await sql`DELETE FROM experiences`;
   await sql`DELETE FROM education`;
   await sql`DELETE FROM jobs`;
   await sql`DELETE FROM gallery`;
   await sql`DELETE FROM contacts`;
+  await sql`DELETE FROM roadmap`;
 
   for (const row of education) {
     await sql`
@@ -234,10 +278,20 @@ async function seed() {
       RETURNING id
     `;
     if (row.skills) {
-      for (const name of row.skills) {
-        await sql`INSERT INTO skills (experience_id, name) VALUES (${inserted[0].id}, ${name})`;
+      for (let i = 0; i < row.skills.length; i++) {
+        const skill = row.skills[i];
+        const name = typeof skill === "string" ? skill : skill.name;
+        const category = typeof skill === "string" ? "tools" : (skill.category || "tools");
+        await sql`INSERT INTO skills (experience_id, name, category, sort_order) VALUES (${inserted[0].id}, ${name}, ${category}, ${i})`;
       }
     }
+  }
+
+  for (const row of roadmap) {
+    await sql`
+      INSERT INTO roadmap (period, title, description, status, sort_order)
+      VALUES (${row.period}, ${row.title}, ${row.description}, ${row.status}, ${row.sort_order})
+    `;
   }
 
   for (const row of gallery) {
@@ -260,6 +314,7 @@ async function seed() {
   console.log("  Location: " + about.location);
   console.log("  Jobs:     " + jobs.length);
   console.log("  Projects: " + (experiences.length - 1));
+  console.log("  Roadmap:  " + roadmap.length);
   console.log("");
   console.log("View: http://localhost:8637");
   console.log("Edit: http://localhost:8637/admin");

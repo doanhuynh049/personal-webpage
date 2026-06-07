@@ -637,6 +637,37 @@ ul {
   border-radius: 999px;
 }
 
+.skills-matrix {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin-top: 2.5rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.skills-matrix-group {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1.5rem;
+}
+
+.skills-matrix-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-accent);
+  margin-bottom: 0.85rem;
+}
+
+@media (max-width: 768px) {
+  .skills-matrix {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ---- Gallery ---- */
 
 .gallery-grid {

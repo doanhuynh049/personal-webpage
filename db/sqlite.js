@@ -99,7 +99,17 @@ async function initDb() {
     CREATE TABLE IF NOT EXISTS skills (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       experience_id INTEGER NOT NULL REFERENCES experiences(id) ON DELETE CASCADE,
-      name TEXT NOT NULL
+      name TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'tools',
+      sort_order INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS roadmap (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      period TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      status TEXT DEFAULT 'planned' CHECK (status IN ('planned', 'in_progress', 'completed')),
+      sort_order INTEGER DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS gallery (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -118,8 +128,31 @@ async function initDb() {
     );
   `);
 
+  migrateSchema(conn);
+
   const existing = conn.prepare("SELECT id FROM profile WHERE id = 1").get();
   if (!existing) await seedDb();
+}
+
+function migrateSchema(conn) {
+  const skillCols = conn.prepare("PRAGMA table_info(skills)").all().map((c) => c.name);
+  if (skillCols.length && !skillCols.includes("category")) {
+    conn.exec("ALTER TABLE skills ADD COLUMN category TEXT NOT NULL DEFAULT 'tools'");
+  }
+  if (skillCols.length && !skillCols.includes("sort_order")) {
+    conn.exec("ALTER TABLE skills ADD COLUMN sort_order INTEGER DEFAULT 0");
+  }
+
+  conn.exec(`
+    CREATE TABLE IF NOT EXISTS roadmap (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      period TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      status TEXT DEFAULT 'planned' CHECK (status IN ('planned', 'in_progress', 'completed')),
+      sort_order INTEGER DEFAULT 0
+    )
+  `);
 }
 
 async function seedDb() {
@@ -162,11 +195,17 @@ async function seedDb() {
   const insertExp = conn.prepare("INSERT INTO experiences (title, description, is_skills, sort_order) VALUES (?, ?, ?, ?)");
   insertExp.run("Project or Achievement Name", "Describe a significant project or milestone.", 0, 0);
   insertExp.run("Another Highlight", "Add competitions, publications, or other experiences.", 0, 1);
-  const exp3 = insertExp.run("Skills & Interests", "", 1, 2);
+  const exp3 = insertExp.run("Skills Matrix", "", 1, 2);
 
-  const insertSkill = conn.prepare("INSERT INTO skills (experience_id, name) VALUES (?, ?)");
-  ["Skill 1", "Skill 2", "Skill 3", "Photography", "Your hobby"].forEach((name) => {
-    insertSkill.run(Number(exp3.lastInsertRowid), name);
+  const insertSkill = conn.prepare("INSERT INTO skills (experience_id, name, category, sort_order) VALUES (?, ?, ?, ?)");
+  [
+    ["C++", "languages", 0],
+    ["Java", "languages", 1],
+    ["Skill 3", "tools", 2],
+    ["Photography", "domains", 3],
+    ["Your hobby", "domains", 4],
+  ].forEach(([name, category, sort_order], i) => {
+    insertSkill.run(Number(exp3.lastInsertRowid), name, category, sort_order ?? i);
   });
 
   const insertGallery = conn.prepare("INSERT INTO gallery (image_path, caption, alt_text, layout, sort_order) VALUES (?, ?, ?, ?, ?)");
@@ -193,9 +232,10 @@ async function getPublicContent() {
   const education = conn.prepare("SELECT * FROM education ORDER BY sort_order, id").all();
   const jobs = conn.prepare("SELECT * FROM jobs ORDER BY sort_order, id").all();
   const experiences = conn.prepare("SELECT * FROM experiences ORDER BY sort_order, id").all();
-  const skills = conn.prepare("SELECT * FROM skills ORDER BY id").all();
+  const skills = conn.prepare("SELECT * FROM skills ORDER BY category, sort_order, id").all();
   const gallery = conn.prepare("SELECT * FROM gallery ORDER BY sort_order, id").all();
   const contacts = conn.prepare("SELECT * FROM contacts ORDER BY sort_order, id").all();
+  const roadmap = conn.prepare("SELECT * FROM roadmap ORDER BY sort_order, id").all();
 
   const skillsByExp = {};
   skills.forEach((s) => {
@@ -226,6 +266,7 @@ async function getPublicContent() {
     })),
     gallery,
     contacts,
+    roadmap,
   };
 }
 

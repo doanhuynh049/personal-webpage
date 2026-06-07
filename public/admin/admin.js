@@ -17,8 +17,23 @@
     education: "Education",
     jobs: "Work",
     experience: "Experience",
+    skills: "Skills Matrix",
+    roadmap: "Career Roadmap",
     gallery: "Gallery",
     contact: "Contact",
+  };
+
+  const SKILL_CATEGORIES = {
+    languages: "Languages",
+    embedded: "Embedded",
+    tools: "Tools",
+    domains: "Domains",
+  };
+
+  const ROADMAP_STATUS = {
+    planned: "Planned",
+    in_progress: "In Progress",
+    completed: "Completed",
   };
 
   async function api(url, options = {}) {
@@ -56,6 +71,8 @@
     clearTimeout(showToast._timer);
     showToast._timer = setTimeout(() => { toast.hidden = true; }, 2800);
   }
+
+  AdminTools.init({ api, showToast, query: $ });
 
   function showLogin() {
     loginScreen.hidden = false;
@@ -124,8 +141,13 @@
     renderEducation();
     renderJobs();
     renderExperience();
+    renderSkillsMatrixAdmin();
+    renderRoadmap();
     renderGallery();
     renderContacts();
+    AdminTools.bindAiButtons(document);
+    AdminTools.initAllSortables();
+    AdminTools.refreshPreview();
   }
 
   function renderProfile() {
@@ -160,6 +182,7 @@
         }),
       });
       showToast("Profile saved");
+      AdminTools.refreshPreview();
     } catch (err) { showToast(err.message, true); }
   });
 
@@ -176,6 +199,7 @@
         }),
       });
       showToast("About saved");
+      AdminTools.refreshPreview();
     } catch (err) { showToast(err.message, true); }
   });
 
@@ -194,8 +218,11 @@
   function renderEducation() {
     const list = $("#education-list");
     list.innerHTML = content.education.map((item) => `
-      <div class="item-card" data-id="${item.id}">
-        <div class="item-card-header"><h4>Education</h4></div>
+      <div class="item-card sortable-item" data-id="${item.id}">
+        <div class="item-card-header">
+          <span class="drag-handle" draggable="true" title="Drag to reorder">⠿</span>
+          <h4>Education</h4>
+        </div>
         <div class="form-row">
           <div class="form-group"><label for="edu-period-${item.id}">Period</label><input type="text" id="edu-period-${item.id}" name="edu-period-${item.id}" class="edu-period" value="${esc(item.period)}"></div>
           <div class="form-group"><label for="edu-title-${item.id}">Degree / Program</label><input type="text" id="edu-title-${item.id}" name="edu-title-${item.id}" class="edu-title" value="${esc(item.title)}"></div>
@@ -203,6 +230,7 @@
         <div class="form-group"><label for="edu-institution-${item.id}">Institution</label><input type="text" id="edu-institution-${item.id}" name="edu-institution-${item.id}" class="edu-institution" value="${esc(item.institution)}"></div>
         <div class="form-group"><label for="edu-desc-${item.id}">Description</label><textarea id="edu-desc-${item.id}" name="edu-desc-${item.id}" class="edu-desc" rows="2">${esc(item.description)}</textarea></div>
         <div class="item-card-actions">
+          <button type="button" class="btn btn-ai btn-sm" data-ai-section="education_description" data-ai-target="edu-desc-${item.id}" data-ai-title="${esc(item.title)}" data-ai-institution="${esc(item.institution)}">✦ Suggest</button>
           <button class="btn btn-primary btn-sm save-edu">Save</button>
           <button class="btn btn-danger btn-sm delete-edu">Delete</button>
         </div>
@@ -227,6 +255,7 @@
             }),
           });
           showToast("Education saved");
+          AdminTools.refreshPreview();
         } catch (err) { showToast(err.message, true); }
       });
     });
@@ -253,15 +282,19 @@
   // Jobs
   function renderJobs() {
     $("#jobs-list").innerHTML = content.jobs.map((item) => `
-      <div class="item-card" data-id="${item.id}">
-        <div class="item-card-header"><h4>Job</h4></div>
+      <div class="item-card sortable-item" data-id="${item.id}">
+        <div class="item-card-header">
+          <span class="drag-handle" draggable="true" title="Drag to reorder">⠿</span>
+          <h4>Job</h4>
+        </div>
         <div class="form-row">
           <div class="form-group"><label for="job-period-${item.id}">Period</label><input type="text" id="job-period-${item.id}" name="job-period-${item.id}" class="job-period" value="${esc(item.period)}"></div>
           <div class="form-group"><label for="job-title-${item.id}">Title</label><input type="text" id="job-title-${item.id}" name="job-title-${item.id}" class="job-title" value="${esc(item.title)}"></div>
         </div>
         <div class="form-group"><label for="job-company-${item.id}">Company</label><input type="text" id="job-company-${item.id}" name="job-company-${item.id}" class="job-company" value="${esc(item.company)}"></div>
-        <div class="form-group"><label for="job-desc-${item.id}">Description</label><textarea id="job-desc-${item.id}" name="job-desc-${item.id}" class="job-desc" rows="2">${esc(item.description)}</textarea></div>
+        <div class="form-group"><label for="job-desc-${item.id}">Description</label><textarea id="job-desc-${item.id}" name="job-desc-${item.id}" class="job-desc" rows="4">${esc(item.description)}</textarea></div>
         <div class="item-card-actions">
+          <button type="button" class="btn btn-ai btn-sm" data-ai-section="job_description" data-ai-target="job-desc-${item.id}" data-ai-title="${esc(item.title)}" data-ai-company="${esc(item.company)}">✦ Suggest</button>
           <button class="btn btn-primary btn-sm save-job">Save</button>
           <button class="btn btn-danger btn-sm delete-job">Delete</button>
         </div>
@@ -285,6 +318,7 @@
             }),
           });
           showToast("Job saved");
+          AdminTools.refreshPreview();
         } catch (err) { showToast(err.message, true); }
       });
     });
@@ -307,24 +341,16 @@
     showToast("Job added");
   });
 
-  // Experience
+  // Experience (projects only)
   function renderExperience() {
-    $("#experience-list").innerHTML = content.experiences.map((item) => `
-      <div class="item-card" data-id="${item.id}" data-skills="${item.is_skills}">
-        <div class="item-card-header"><h4>${item.is_skills ? "Skills & Interests" : "Experience"}</h4></div>
+    const projects = content.experiences.filter((item) => !item.is_skills);
+    $("#experience-list").innerHTML = projects.map((item) => `
+      <div class="item-card" data-id="${item.id}">
+        <div class="item-card-header"><h4>Project</h4></div>
         <div class="form-group"><label for="exp-title-${item.id}">Title</label><input type="text" id="exp-title-${item.id}" name="exp-title-${item.id}" class="exp-title" value="${esc(item.title)}"></div>
-        ${item.is_skills ? "" : `<div class="form-group"><label for="exp-desc-${item.id}">Description</label><textarea id="exp-desc-${item.id}" name="exp-desc-${item.id}" class="exp-desc" rows="2">${esc(item.description)}</textarea></div>`}
-        ${item.is_skills ? `
-          <div class="skills-input-row" id="skills-${item.id}">
-            ${item.skills.map((s) => `<span class="skill-tag">${esc(s.name)}<button type="button" data-skill-id="${s.id}" aria-label="Remove skill">&times;</button></span>`).join("")}
-          </div>
-          <div class="add-skill-row">
-            <label for="new-skill-${item.id}" class="visually-hidden">Add skill</label>
-            <input type="text" id="new-skill-${item.id}" name="new-skill-${item.id}" class="new-skill-input" placeholder="Add skill...">
-            <button type="button" class="btn btn-secondary btn-sm add-skill-btn">Add</button>
-          </div>
-        ` : ""}
+        <div class="form-group"><label for="exp-desc-${item.id}">Description</label><textarea id="exp-desc-${item.id}" name="exp-desc-${item.id}" class="exp-desc" rows="2">${esc(item.description)}</textarea></div>
         <div class="item-card-actions">
+          <button type="button" class="btn btn-ai btn-sm" data-ai-section="experience_description" data-ai-target="exp-desc-${item.id}" data-ai-title="${esc(item.title)}">✦ Suggest</button>
           <button class="btn btn-primary btn-sm save-exp">Save</button>
           <button class="btn btn-danger btn-sm delete-exp">Delete</button>
         </div>
@@ -337,47 +363,26 @@
     $("#experience-list").querySelectorAll(".save-exp").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const card = btn.closest(".item-card");
-        const isSkills = card.dataset.skills === "1";
         try {
           await api(`/api/experiences/${card.dataset.id}`, {
             method: "PUT",
             body: JSON.stringify({
               title: card.querySelector(".exp-title").value,
-              description: isSkills ? "" : card.querySelector(".exp-desc").value,
-              is_skills: isSkills,
+              description: card.querySelector(".exp-desc").value,
+              is_skills: false,
             }),
           });
-          showToast("Experience saved");
+          showToast("Project saved");
+          AdminTools.refreshPreview();
         } catch (err) { showToast(err.message, true); }
       });
     });
     $("#experience-list").querySelectorAll(".delete-exp").forEach((btn) => {
       btn.addEventListener("click", async () => {
-        if (!confirm("Delete this entry?")) return;
+        if (!confirm("Delete this project?")) return;
         await api(`/api/experiences/${btn.closest(".item-card").dataset.id}`, { method: "DELETE" });
         await loadContent();
         showToast("Deleted");
-      });
-    });
-    $("#experience-list").querySelectorAll(".add-skill-btn").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const card = btn.closest(".item-card");
-        const input = card.querySelector(".new-skill-input");
-        const name = input.value.trim();
-        if (!name) return;
-        await api(`/api/experiences/${card.dataset.id}/skills`, {
-          method: "POST",
-          body: JSON.stringify({ name }),
-        });
-        await loadContent();
-        showToast("Skill added");
-      });
-    });
-    $("#experience-list").querySelectorAll(".skill-tag button").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        await api(`/api/skills/${btn.dataset.skillId}`, { method: "DELETE" });
-        await loadContent();
-        showToast("Skill removed");
       });
     });
   }
@@ -385,16 +390,174 @@
   $("#add-experience").addEventListener("click", async () => {
     await api("/api/experiences", {
       method: "POST",
-      body: JSON.stringify({ title: "New Experience", description: "", is_skills: false }),
+      body: JSON.stringify({ title: "New Project", description: "", is_skills: false }),
     });
     await loadContent();
-    showToast("Experience added");
+    showToast("Project added");
+  });
+
+  function getSkillsExperience() {
+    return content.experiences.find((item) => item.is_skills);
+  }
+
+  async function ensureSkillsExperience() {
+    let exp = getSkillsExperience();
+    if (!exp) {
+      await api("/api/experiences", {
+        method: "POST",
+        body: JSON.stringify({ title: "Skills Matrix", description: "", is_skills: true }),
+      });
+      await loadContent();
+      exp = getSkillsExperience();
+    }
+    return exp;
+  }
+
+  function renderSkillsMatrixAdmin() {
+    const root = $("#skills-matrix-admin");
+    const exp = getSkillsExperience();
+    if (!exp) {
+      root.innerHTML = `
+        <div class="card-form">
+          <p class="panel-intro">No skills matrix yet.</p>
+          <button type="button" class="btn btn-primary btn-sm" id="init-skills-matrix">Create Skills Matrix</button>
+        </div>`;
+      $("#init-skills-matrix")?.addEventListener("click", async () => {
+        await ensureSkillsExperience();
+        showToast("Skills matrix created");
+      });
+      return;
+    }
+
+    const byCategory = {};
+    for (const key of Object.keys(SKILL_CATEGORIES)) byCategory[key] = [];
+    for (const skill of exp.skills) {
+      const cat = SKILL_CATEGORIES[skill.category] ? skill.category : "tools";
+      byCategory[cat].push(skill);
+    }
+
+    root.innerHTML = Object.entries(SKILL_CATEGORIES).map(([key, label]) => `
+      <div class="skills-category-card" data-category="${key}">
+        <h4>${label}</h4>
+        <div class="skills-input-row" id="skills-cat-${key}">
+          ${byCategory[key].map((s) => `
+            <span class="skill-tag">
+              ${esc(s.name)}
+              <button type="button" data-skill-id="${s.id}" aria-label="Remove skill">&times;</button>
+            </span>`).join("")}
+        </div>
+        <div class="add-skill-row">
+          <label for="new-skill-${key}" class="visually-hidden">Add ${label} skill</label>
+          <input type="text" id="new-skill-${key}" class="new-skill-input" placeholder="Add ${label.toLowerCase()} skill...">
+          <button type="button" class="btn btn-secondary btn-sm add-skill-cat-btn" data-category="${key}">Add</button>
+        </div>
+      </div>
+    `).join("");
+
+    root.querySelectorAll(".add-skill-cat-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const category = btn.dataset.category;
+        const input = root.querySelector(`#new-skill-${category}`);
+        const name = input.value.trim();
+        if (!name) return;
+        await api(`/api/experiences/${exp.id}/skills`, {
+          method: "POST",
+          body: JSON.stringify({ name, category }),
+        });
+        await loadContent();
+        showToast("Skill added");
+        AdminTools.refreshPreview();
+      });
+    });
+
+    root.querySelectorAll(".skill-tag button").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        await api(`/api/skills/${btn.dataset.skillId}`, { method: "DELETE" });
+        await loadContent();
+        showToast("Skill removed");
+        AdminTools.refreshPreview();
+      });
+    });
+  }
+
+  function renderRoadmap() {
+    const list = content.roadmap || [];
+    $("#roadmap-list").innerHTML = list.map((item) => `
+      <div class="item-card sortable-item roadmap-card" data-id="${item.id}">
+        <div class="item-card-header">
+          <span class="drag-handle" draggable="true" title="Drag to reorder">⠿</span>
+          <span class="roadmap-status roadmap-status--${item.status}">${esc(ROADMAP_STATUS[item.status] || item.status)}</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label for="road-period-${item.id}">Period</label><input type="text" id="road-period-${item.id}" class="road-period" value="${esc(item.period)}"></div>
+          <div class="form-group">
+            <label for="road-status-${item.id}">Status</label>
+            <select id="road-status-${item.id}" class="road-status">
+              ${Object.entries(ROADMAP_STATUS).map(([val, lab]) => `<option value="${val}" ${item.status === val ? "selected" : ""}>${lab}</option>`).join("")}
+            </select>
+          </div>
+        </div>
+        <div class="form-group"><label for="road-title-${item.id}">Goal</label><input type="text" id="road-title-${item.id}" class="road-title" value="${esc(item.title)}"></div>
+        <div class="form-group"><label for="road-desc-${item.id}">Description</label><textarea id="road-desc-${item.id}" class="road-desc" rows="3">${esc(item.description)}</textarea></div>
+        <div class="item-card-actions">
+          <button type="button" class="btn btn-ai btn-sm" data-ai-section="roadmap_description" data-ai-target="road-desc-${item.id}" data-ai-title="${esc(item.title)}" data-ai-status="${esc(item.status)}">✦ Suggest</button>
+          <button class="btn btn-primary btn-sm save-road">Save</button>
+          <button class="btn btn-danger btn-sm delete-road">Delete</button>
+        </div>
+      </div>
+    `).join("");
+    bindRoadmapEvents();
+  }
+
+  function bindRoadmapEvents() {
+    $("#roadmap-list").querySelectorAll(".save-road").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const card = btn.closest(".item-card");
+        try {
+          await api(`/api/roadmap/${card.dataset.id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              period: card.querySelector(".road-period").value,
+              title: card.querySelector(".road-title").value,
+              description: card.querySelector(".road-desc").value,
+              status: card.querySelector(".road-status").value,
+            }),
+          });
+          showToast("Roadmap saved");
+        } catch (err) { showToast(err.message, true); }
+      });
+    });
+    $("#roadmap-list").querySelectorAll(".delete-road").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("Delete this milestone?")) return;
+        await api(`/api/roadmap/${btn.closest(".item-card").dataset.id}`, { method: "DELETE" });
+        await loadContent();
+        showToast("Deleted");
+      });
+    });
+  }
+
+  $("#add-roadmap").addEventListener("click", async () => {
+    await api("/api/roadmap", {
+      method: "POST",
+      body: JSON.stringify({
+        period: "2026",
+        title: "New career goal",
+        description: "",
+        status: "planned",
+      }),
+    });
+    await loadContent();
+    showToast("Milestone added");
   });
 
   // Gallery
   function renderGallery() {
     $("#gallery-list").innerHTML = content.gallery.map((item) => `
-      <div class="gallery-admin-card" data-id="${item.id}">
+      <div class="gallery-admin-card sortable-item" data-id="${item.id}">
+        <div class="gallery-drag-bar">
+          <span class="drag-handle" draggable="true" title="Drag to reorder">⠿</span>
+        </div>
         <img src="${esc(item.image_path)}" alt="${esc(item.alt_text || item.caption || "Gallery photo")}">
         <div class="gallery-admin-body">
           <label for="gal-caption-${item.id}">Caption</label>
@@ -434,6 +597,7 @@
             }),
           });
           showToast("Photo saved");
+          AdminTools.refreshPreview();
         } catch (err) { showToast(err.message, true); }
       });
     });

@@ -45,6 +45,7 @@ app.use(session({
 
 app.use("/api/auth", authRoutes);
 app.use("/api", contentRoutes);
+app.use("/api", require("./routes/tools"));
 
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/uploads", express.static(getUploadDir()));

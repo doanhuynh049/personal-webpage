@@ -41,19 +41,26 @@
         <button class="nav-item" data-panel="education">Education</button>
         <button class="nav-item" data-panel="jobs">Work</button>
         <button class="nav-item" data-panel="experience">Experience</button>
+        <button class="nav-item" data-panel="skills">Skills Matrix</button>
+        <button class="nav-item" data-panel="roadmap">Career Roadmap</button>
         <button class="nav-item" data-panel="gallery">Gallery</button>
         <button class="nav-item" data-panel="contact">Contact</button>
       </nav>
       <div class="sidebar-footer">
         <a href="/" target="_blank" class="sidebar-link">View Site ↗</a>
+        <a href="/api/resume.pdf" class="sidebar-link" download>Download Resume PDF</a>
         <button id="logout-btn" class="sidebar-link sidebar-link--muted">Sign Out</button>
       </div>
     </aside>
 
+    <div class="workspace">
     <main class="main-content">
       <header class="topbar">
         <h2 id="panel-title">Profile</h2>
         <div class="topbar-actions">
+          <button type="button" class="btn btn-secondary btn-sm" id="refresh-preview" title="Refresh preview">↻ Preview</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="toggle-preview">Hide Preview</button>
+          <a href="/api/resume.pdf" class="btn btn-secondary btn-sm" download>PDF Resume</a>
           <span class="save-status" id="save-status"></span>
         </div>
       </header>
@@ -91,7 +98,11 @@
                 </div>
               </div>
             </div>
-            <button class="btn btn-primary" id="save-profile">Save Profile</button>
+            <div class="form-actions">
+              <button type="button" class="btn btn-ai btn-sm" data-ai-section="profile_tagline" data-ai-target="profile-tagline">✦ Tagline</button>
+              <button type="button" class="btn btn-ai btn-sm" data-ai-section="profile_intro" data-ai-target="profile-intro">✦ Intro</button>
+              <button class="btn btn-primary" id="save-profile">Save Profile</button>
+            </div>
           </div>
         </section>
 
@@ -120,7 +131,10 @@
                 <input type="text" id="about-currently" name="about-currently">
               </div>
             </div>
-            <button class="btn btn-primary" id="save-about">Save About</button>
+            <div class="form-actions">
+              <button type="button" class="btn btn-ai btn-sm" data-ai-section="about_bio" data-ai-target="about-bio">✦ AI Suggest</button>
+              <button class="btn btn-primary" id="save-about">Save About</button>
+            </div>
           </div>
         </section>
 
@@ -128,6 +142,7 @@
         <section class="panel" id="panel-education">
           <div class="panel-toolbar">
             <button class="btn btn-secondary btn-sm" id="add-education">+ Add Education</button>
+            <span class="panel-hint">Drag cards to reorder</span>
           </div>
           <div id="education-list" class="item-list"></div>
         </section>
@@ -136,6 +151,7 @@
         <section class="panel" id="panel-jobs">
           <div class="panel-toolbar">
             <button class="btn btn-secondary btn-sm" id="add-job">+ Add Job</button>
+            <span class="panel-hint">Drag cards to reorder</span>
           </div>
           <div id="jobs-list" class="item-list"></div>
         </section>
@@ -143,9 +159,24 @@
         <!-- Experience -->
         <section class="panel" id="panel-experience">
           <div class="panel-toolbar">
-            <button class="btn btn-secondary btn-sm" id="add-experience">+ Add Experience</button>
+            <button class="btn btn-secondary btn-sm" id="add-experience">+ Add Project</button>
           </div>
           <div id="experience-list" class="item-list"></div>
+        </section>
+
+        <!-- Skills Matrix -->
+        <section class="panel" id="panel-skills">
+          <p class="panel-intro">Group your skills into Languages, Embedded, Tools, and Domains.</p>
+          <div id="skills-matrix-admin" class="skills-matrix-admin"></div>
+        </section>
+
+        <!-- Career Roadmap -->
+        <section class="panel" id="panel-roadmap">
+          <div class="panel-toolbar">
+            <button class="btn btn-secondary btn-sm" id="add-roadmap">+ Add Milestone</button>
+            <span class="panel-hint">Drag to reorder · track planned, in progress, and completed goals</span>
+          </div>
+          <div id="roadmap-list" class="item-list"></div>
         </section>
 
         <!-- Gallery -->
@@ -153,6 +184,7 @@
           <div class="panel-toolbar">
             <label for="gallery-upload" class="btn btn-secondary btn-sm">+ Upload Photo</label>
             <input type="file" id="gallery-upload" name="gallery-photo" accept="image/*" hidden>
+            <span class="panel-hint">Drag photos to reorder</span>
           </div>
           <div id="gallery-list" class="gallery-admin-grid"></div>
         </section>
@@ -166,10 +198,36 @@
         </section>
       </div>
     </main>
+
+    <aside class="preview-panel" id="preview-panel">
+      <div class="preview-header">
+        <span>Live Preview</span>
+      </div>
+      <iframe id="live-preview" src="/" title="Site preview"></iframe>
+    </aside>
+    </div>
+  </div>
+
+  <!-- AI suggestion drawer -->
+  <div id="ai-drawer" class="ai-drawer" hidden>
+    <div id="ai-drawer-backdrop" class="ai-drawer-backdrop"></div>
+    <div class="ai-drawer-panel">
+      <div class="ai-drawer-header">
+        <h3>✦ AI Suggestion</h3>
+        <button type="button" id="ai-close" class="ai-close" aria-label="Close">&times;</button>
+      </div>
+      <pre id="ai-suggestion-text" class="ai-suggestion-text"></pre>
+      <p id="ai-note" class="ai-note"></p>
+      <div class="ai-drawer-actions">
+        <button type="button" class="btn btn-primary btn-sm" id="ai-apply">Apply to field</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="ai-close-2">Cancel</button>
+      </div>
+    </div>
   </div>
 
   <div id="toast" class="toast" hidden></div>
 
+  <script src="/admin/admin-tools.js"></script>
   <script src="/admin/admin.js"></script>
 </body>
 </html>

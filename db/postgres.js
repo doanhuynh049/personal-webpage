@@ -90,9 +90,24 @@ async function initDb() {
     CREATE TABLE IF NOT EXISTS skills (
       id SERIAL PRIMARY KEY,
       experience_id INTEGER NOT NULL REFERENCES experiences(id) ON DELETE CASCADE,
-      name TEXT NOT NULL
+      name TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'tools',
+      sort_order INTEGER DEFAULT 0
     )
   `;
+
+  await db`
+    CREATE TABLE IF NOT EXISTS roadmap (
+      id SERIAL PRIMARY KEY,
+      period TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      status TEXT DEFAULT 'planned' CHECK (status IN ('planned', 'in_progress', 'completed')),
+      sort_order INTEGER DEFAULT 0
+    )
+  `;
+
+  await migrateSchema(db);
 
   await db`
     CREATE TABLE IF NOT EXISTS gallery (
@@ -119,6 +134,11 @@ async function initDb() {
   if (existing.length === 0) {
     await seedDb();
   }
+}
+
+async function migrateSchema(db) {
+  await db`ALTER TABLE skills ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'tools'`;
+  await db`ALTER TABLE skills ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0`;
 }
 
 async function seedDb() {
@@ -173,12 +193,19 @@ async function seedDb() {
 
   const [skillsExp] = await db`
     INSERT INTO experiences (title, description, is_skills, sort_order)
-    VALUES ('Skills & Interests', '', true, 2)
+    VALUES ('Skills Matrix', '', true, 2)
     RETURNING id
   `;
 
-  for (const name of ["Skill 1", "Skill 2", "Skill 3", "Photography", "Your hobby"]) {
-    await db`INSERT INTO skills (experience_id, name) VALUES (${skillsExp.id}, ${name})`;
+  const defaultSkills = [
+    ["C++", "languages", 0],
+    ["Java", "languages", 1],
+    ["Skill 3", "tools", 2],
+    ["Photography", "domains", 3],
+    ["Your hobby", "domains", 4],
+  ];
+  for (const [name, category, sort_order] of defaultSkills) {
+    await db`INSERT INTO skills (experience_id, name, category, sort_order) VALUES (${skillsExp.id}, ${name}, ${category}, ${sort_order})`;
   }
 
   const gallery = [
@@ -204,16 +231,17 @@ async function seedDb() {
 async function getPublicContent() {
   const db = getSql();
 
-  const [profileRows, aboutRows, sections, education, jobs, experiences, skills, gallery, contacts] = await Promise.all([
+  const [profileRows, aboutRows, sections, education, jobs, experiences, skills, gallery, contacts, roadmap] = await Promise.all([
     db`SELECT * FROM profile WHERE id = 1`,
     db`SELECT * FROM about WHERE id = 1`,
     db`SELECT * FROM sections`,
     db`SELECT * FROM education ORDER BY sort_order, id`,
     db`SELECT * FROM jobs ORDER BY sort_order, id`,
     db`SELECT * FROM experiences ORDER BY sort_order, id`,
-    db`SELECT * FROM skills ORDER BY id`,
+    db`SELECT * FROM skills ORDER BY category, sort_order, id`,
     db`SELECT * FROM gallery ORDER BY sort_order, id`,
     db`SELECT * FROM contacts ORDER BY sort_order, id`,
+    db`SELECT * FROM roadmap ORDER BY sort_order, id`,
   ]);
 
   const skillsByExp = {};
@@ -245,6 +273,7 @@ async function getPublicContent() {
     })),
     gallery,
     contacts,
+    roadmap,
   };
 }
 
