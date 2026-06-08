@@ -54,14 +54,29 @@
     return data;
   }
 
-  async function uploadImage(file) {
+  async function uploadImage(file, options = {}) {
     const form = new FormData();
     form.append("image", file);
+    if (options.country) form.append("country", options.country);
+    if (options.caption) form.append("caption", options.caption);
+    if (options.galleryId) form.append("gallery_id", options.galleryId);
     const res = await fetch("/api/upload", { method: "POST", credentials: "same-origin", body: form });
     if (res.status === 401) { showLogin(); throw new Error("Unauthorized"); }
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Upload failed");
     return data.path;
+  }
+
+  async function uploadToGallerySlot(id, file, options = {}) {
+    const form = new FormData();
+    form.append("image", file);
+    if (options.country) form.append("country", options.country);
+    if (options.caption) form.append("caption", options.caption);
+    const res = await fetch(`/api/gallery/${id}/image`, { method: "POST", credentials: "same-origin", body: form });
+    if (res.status === 401) { showLogin(); throw new Error("Unauthorized"); }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Upload failed");
+    return data;
   }
 
   function showToast(msg, isError = false) {
@@ -592,18 +607,33 @@
     return `object-position:${fx}% ${fy}%`;
   }
 
+  function isGalleryPlaceholder(item) {
+    return /^\/images\/photos\/photo-\d+\.svg$/i.test(item?.image_path || "");
+  }
+
   function renderGallery() {
     const items = content.gallery || [];
     const list = $("#gallery-list");
     const empty = $("#gallery-empty");
     const countEl = $("#gallery-count");
+    const emptyStat = $("#gallery-empty-count");
     const countries = [...new Set(items.map((i) => i.country).filter(Boolean))];
+    const filled = items.filter((i) => !isGalleryPlaceholder(i.image_path));
+    const emptySlots = items.filter((i) => isGalleryPlaceholder(i.image_path));
 
     empty.hidden = items.length > 0;
     list.hidden = items.length === 0;
     if (countEl) {
       const countryNote = countries.length ? ` · ${countries.length} countr${countries.length === 1 ? "y" : "ies"}` : "";
-      countEl.textContent = `${items.length} photo${items.length === 1 ? "" : "s"}${countryNote}`;
+      countEl.textContent = `${filled.length} photo${filled.length === 1 ? "" : "s"}${countryNote}`;
+    }
+    if (emptyStat) {
+      if (emptySlots.length) {
+        emptyStat.hidden = false;
+        emptyStat.textContent = `${emptySlots.length} empty slot${emptySlots.length === 1 ? "" : "s"} — uploads fill these first`;
+      } else {
+        emptyStat.hidden = true;
+      }
     }
 
     if (!items.length) {
@@ -615,13 +645,25 @@
       const layout = item.layout || "normal";
       const fx = item.focal_x ?? 50;
       const fy = item.focal_y ?? 50;
+      const placeholder = isGalleryPlaceholder(item);
+      const emptySlot = placeholder
+        ? `<div class="gallery-empty-slot">
+            <span class="gallery-empty-slot-num">${index + 1}</span>
+            <p>Empty slot</p>
+            <label class="btn btn-secondary btn-sm gallery-slot-upload-label">
+              Add photo
+              <input type="file" class="gallery-slot-upload-input" accept="image/*,.heic,.heif" hidden>
+            </label>
+          </div>`
+        : "";
       return `
-      <div class="gallery-editor-item ${galleryLayoutClass(layout)}" data-id="${item.id}" data-layout="${esc(layout)}" data-focal-x="${fx}" data-focal-y="${fy}">
+      <div class="gallery-editor-item ${galleryLayoutClass(layout)}${placeholder ? " is-empty-slot" : ""}" data-id="${item.id}" data-layout="${esc(layout)}" data-focal-x="${fx}" data-focal-y="${fy}">
         <span class="gallery-editor-pos">${index + 1}</span>
         <span class="gallery-size-badge">${galleryLayoutLabel(layout)}</span>
         ${item.country ? `<span class="gallery-country-badge">${esc(item.country)}</span>` : ""}
         <div class="gallery-image-frame">
-          <img src="${esc(galleryImgSrc(item))}" alt="${esc(item.alt_text || item.caption || "Photo")}" loading="lazy" style="${galleryImgStyle(item)}" draggable="false">
+          ${placeholder ? "" : `<img src="${esc(galleryImgSrc(item))}" alt="${esc(item.alt_text || item.caption || "Photo")}" loading="lazy" style="${galleryImgStyle(item)}" draggable="false">`}
+          ${emptySlot}
           <button type="button" class="gallery-focal-marker" style="left:${fx}%;top:${fy}%" title="Drag or click to set visible area" aria-label="Adjust photo position"></button>
           <div class="gallery-focal-hint">Click or drag to adjust frame</div>
         </div>
@@ -809,31 +851,15 @@
         const file = e.target.files?.[0];
         if (!file) return;
         e.target.value = "";
-        try {
-          const path = await uploadImage(file);
-          const id = card.dataset.id;
-          const orig = content.gallery.find((g) => g.id == id);
-          await api(`/api/gallery/${id}`, {
-            method: "PUT",
-            body: JSON.stringify({
-              image_path: path,
-              caption: card.querySelector(".gal-caption").value,
-              alt_text: card.querySelector(".gal-alt").value,
-              country: card.querySelector(".gal-country")?.value?.trim() || "",
-              layout: card.dataset.layout || orig?.layout || "normal",
-              focal_x: Number(card.dataset.focalX ?? 50),
-              focal_y: Number(card.dataset.focalY ?? 50),
-            }),
-          });
-          if (orig) orig.image_path = path;
-          card.classList.remove("is-broken");
-          img.hidden = false;
-          img.src = `${path}?v=${Date.now()}`;
-          showToast("Photo replaced");
-          AdminTools.refreshPreview();
-        } catch (err) {
-          showToast(err.message, true);
-        }
+        await handleSlotUpload(card, file);
+      });
+
+      const slotUploadInput = card.querySelector(".gallery-slot-upload-input");
+      slotUploadInput?.addEventListener("change", async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        e.target.value = "";
+        await handleSlotUpload(card, file);
       });
     });
 
@@ -848,25 +874,87 @@
     });
   }
 
-  $("#gallery-upload").addEventListener("change", async (e) => {
-    const files = [...e.target.files];
-    if (!files.length) return;
-    e.target.value = "";
-    const country = $("#gallery-default-country")?.value?.trim() || "";
-
+  async function handleSlotUpload(card, file) {
+    const id = card.dataset.id;
+    const country =
+      card.querySelector(".gal-country")?.value?.trim() ||
+      $("#gallery-default-country")?.value?.trim() ||
+      "";
+    const caption = card.querySelector(".gal-caption")?.value?.trim() || "";
     try {
-      const form = new FormData();
-      files.forEach((f) => form.append("images", f));
-      if (country) form.append("country", country);
-      const res = await fetch("/api/gallery/batch", { method: "POST", credentials: "same-origin", body: form });
-      if (res.status === 401) { showLogin(); throw new Error("Unauthorized"); }
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Upload failed");
-      showToast(files.length === 1 ? "Photo uploaded" : `${data.count} photos uploaded`);
+      const data = await uploadToGallerySlot(id, file, { country, caption });
+      const orig = content.gallery.find((g) => g.id == id);
+      if (orig) {
+        orig.image_path = data.image_path;
+        orig.caption = data.caption;
+        orig.alt_text = data.alt_text;
+        if (data.country) orig.country = data.country;
+      }
+      showToast(`Slot ${card.querySelector(".gallery-editor-pos")?.textContent || ""} updated`);
       await loadContent();
       AdminTools.refreshPreview();
+    } catch (err) {
+      showToast(err.message, true);
+    }
+  }
+
+  async function batchUploadGallery(files) {
+    if (!files.length) return;
+    const country = $("#gallery-default-country")?.value?.trim() || "";
+    const form = new FormData();
+    files.forEach((f) => form.append("images", f));
+    if (country) form.append("country", country);
+    const res = await fetch("/api/gallery/batch", { method: "POST", credentials: "same-origin", body: form });
+    if (res.status === 401) { showLogin(); throw new Error("Unauthorized"); }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Upload failed");
+
+    const filled = data.filled || 0;
+    const added = data.added || 0;
+    let msg;
+    if (filled && added) msg = `Filled ${filled} slot${filled === 1 ? "" : "s"}, added ${added} new`;
+    else if (filled) msg = `Filled ${filled} empty slot${filled === 1 ? "" : "s"}`;
+    else msg = files.length === 1 ? "Photo added" : `${data.count} photos added`;
+    showToast(msg);
+    await loadContent();
+    AdminTools.refreshPreview();
+  }
+
+  $("#gallery-upload").addEventListener("change", async (e) => {
+    const files = [...e.target.files];
+    e.target.value = "";
+    try {
+      await batchUploadGallery(files);
     } catch (err) { showToast(err.message, true); }
   });
+
+  const dropzone = $("#gallery-dropzone");
+  if (dropzone) {
+    ["dragenter", "dragover"].forEach((ev) => {
+      dropzone.addEventListener(ev, (e) => {
+        e.preventDefault();
+        dropzone.classList.add("is-dragover");
+      });
+    });
+    ["dragleave", "drop"].forEach((ev) => {
+      dropzone.addEventListener(ev, (e) => {
+        e.preventDefault();
+        dropzone.classList.remove("is-dragover");
+      });
+    });
+    dropzone.addEventListener("drop", async (e) => {
+      const files = [...e.dataTransfer.files].filter((f) => f.type.startsWith("image/") || /\.heic$|\.heif$/i.test(f.name));
+      if (!files.length) {
+        showToast("Drop image files only", true);
+        return;
+      }
+      try {
+        await batchUploadGallery(files);
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+  }
 
   // Contacts
   function renderContacts() {

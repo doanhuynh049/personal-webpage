@@ -63,6 +63,10 @@
     }).join("");
   }
 
+  function isPlaceholderImage(imagePath) {
+    return /^\/images\/photos\/photo-\d+\.svg$/i.test(imagePath || "");
+  }
+
   function layoutClass(layout) {
     if (layout === "wide") return "gallery-item--wide";
     if (layout === "tall") return "gallery-item--tall";
@@ -86,13 +90,18 @@
   }
 
   function renderGallerySection(gallery) {
-    const countries = [...new Set(gallery.map((g) => g.country).filter(Boolean))].sort((a, b) =>
+    const visible = gallery.filter((g) => !isPlaceholderImage(g.image_path));
+    if (!visible.length) {
+      return `<p class="gallery-empty-public">Photos coming soon.</p>`;
+    }
+
+    const countries = [...new Set(visible.map((g) => g.country).filter(Boolean))].sort((a, b) =>
       a.localeCompare(b)
     );
-    const uncategorized = gallery.filter((g) => !g.country);
+    const uncategorized = visible.filter((g) => !g.country);
 
     if (!countries.length) {
-      return `<div class="gallery-grid">${gallery.map(renderGalleryItem).join("")}</div>`;
+      return `<div class="gallery-grid">${visible.map(renderGalleryItem).join("")}</div>`;
     }
 
     const filters = countries.map(
@@ -100,7 +109,7 @@
     ).join("");
 
     const groups = countries.map((country) => {
-      const items = gallery.filter((g) => g.country === country);
+      const items = visible.filter((g) => g.country === country);
       return `
         <section class="gallery-country-group" data-country="${escapeHtml(country)}">
           <h3 class="gallery-country-title">${escapeHtml(country)} <span class="gallery-country-count">${items.length}</span></h3>

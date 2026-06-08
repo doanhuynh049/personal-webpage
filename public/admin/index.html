@@ -184,22 +184,28 @@
 
         <!-- Gallery -->
         <section class="panel" id="panel-gallery">
-          <div class="gallery-panel-header">
-            <div class="gallery-panel-title">
-              <span id="gallery-count" class="gallery-count-badge">0 photos</span>
-              <span class="gallery-panel-sub">Drag ⠿ to reorder · drag corner for tile size · click image to adjust crop</span>
+          <div class="gallery-studio">
+            <div class="gallery-studio-upload" id="gallery-dropzone">
+              <div class="gallery-studio-upload-inner">
+                <p class="gallery-studio-title">Add travel photos</p>
+                <p class="gallery-studio-hint">Drop images here or choose files — empty numbered slots are filled first, then new slots are added.</p>
+                <div class="gallery-studio-actions">
+                  <input type="text" id="gallery-default-country" class="gallery-country-input" placeholder="Country (e.g. Japan, Thailand)" aria-label="Country for new uploads">
+                  <label for="gallery-upload" class="btn btn-primary btn-sm">Choose photos</label>
+                  <input type="file" id="gallery-upload" name="gallery-photo" accept="image/*,.heic,.heif" multiple hidden>
+                </div>
+                <p class="gallery-studio-meta">HEIC/iPhone photos auto-convert to JPG · click a photo in the grid to adjust crop</p>
+              </div>
             </div>
-            <div class="panel-toolbar gallery-panel-toolbar">
-              <input type="text" id="gallery-default-country" class="gallery-country-input" placeholder="Country for new uploads (e.g. Japan)" aria-label="Country for new uploads">
-              <label for="gallery-upload" class="btn btn-primary btn-sm">+ Upload Photos</label>
-              <input type="file" id="gallery-upload" name="gallery-photo" accept="image/*,.heic,.heif" multiple hidden>
+            <div class="gallery-studio-stats">
+              <span id="gallery-count" class="gallery-count-badge">0 photos</span>
+              <span id="gallery-empty-count" class="gallery-empty-stat" hidden></span>
             </div>
           </div>
-          <p class="gallery-panel-sub gallery-panel-sub--block">Set <strong>Country</strong> before upload to group travel photos · HEIC/iPhone photos auto-convert to JPG · click photo to set frame position</p>
           <div id="gallery-list" class="gallery-layout-editor"></div>
           <p id="gallery-empty" class="gallery-empty" hidden>
-            <strong>No photos yet</strong><br>
-            Upload one or many images — they are added without removing existing photos.
+            <strong>No gallery slots yet</strong><br>
+            Upload photos to create your travel gallery.
           </p>
         </section>
 

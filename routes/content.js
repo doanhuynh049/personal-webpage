@@ -6,6 +6,13 @@ const { requireAuth } = require("../middleware/auth");
 const { upload, getUploadDir } = require("../middleware/upload");
 const { persistUpload, persistUploadFile } = require("../lib/upload-storage");
 const { normalizeUploadFile } = require("../lib/process-image");
+const {
+  getFillableSlots,
+  slotSequence,
+  sortGalleryRows,
+  nextSortOrder,
+  isPlaceholderImage,
+} = require("../lib/gallery-slots");
 
 const { normalizeCategory } = require("../lib/skill-categories");
 
@@ -268,36 +275,143 @@ router.post("/gallery", requireAuth, async (req, res, next) => {
   }
 });
 
+async function loadGalleryRows(sql) {
+  return sql`SELECT * FROM gallery ORDER BY sort_order, id`;
+}
+
+async function assignGalleryImage(sql, { slot, allRows, processed, defaultCountry, replacePlaceholder = true }) {
+  const country = defaultCountry || slot.country || "";
+  const placeholder = replacePlaceholder && isPlaceholderImage(slot.image_path);
+  const caption =
+    processed.caption ||
+    (placeholder ? country || "" : slot.caption) ||
+    processed.alt_text ||
+    "";
+  const alt_text = processed.alt_text || caption || slot.alt_text || "";
+
+  await sql`
+    UPDATE gallery SET
+      image_path = ${processed.image_path},
+      caption = ${caption},
+      alt_text = ${alt_text},
+      country = ${country || slot.country || ""}
+    WHERE id = ${slot.id}
+  `;
+
+  return {
+    id: slot.id,
+    image_path: processed.image_path,
+    caption,
+    alt_text,
+    country: country || slot.country || "",
+    sort_order: slot.sort_order,
+    filled: true,
+  };
+}
+
 router.post("/gallery/batch", requireAuth, upload.array("images", 200), async (req, res, next) => {
   try {
     if (!req.files?.length) {
       return res.status(400).json({ error: "No files uploaded" });
     }
     const sql = getSql();
-    const countRows = await sql`SELECT COUNT(*)::int AS count FROM gallery`;
-    const baseOrder = Number(countRows[0]?.count ?? 0);
     const defaultCountry = (req.body.country || req.body.default_country || "").trim();
+    let allRows = await loadGalleryRows(sql);
+    let fillable = await getFillableSlots(allRows);
     const items = [];
+    let filled = 0;
+    let added = 0;
 
-    for (let i = 0; i < req.files.length; i++) {
-      const file = req.files[i];
+    for (const file of req.files) {
+      let slot = fillable.shift();
+      let sequence;
+      let sort_order;
+
+      if (slot) {
+        sequence = slotSequence(slot, allRows);
+        sort_order = slot.sort_order;
+      } else {
+        sort_order = nextSortOrder(allRows);
+        sequence = sortGalleryRows(allRows).length + 1;
+        slot = null;
+      }
+
       const processed = await normalizeUploadFile(file, {
         country: defaultCountry,
-        sequence: baseOrder + i + 1,
+        sequence,
       });
       const image_path = await persistUploadFile(processed);
-      const rows = await sql`
-        INSERT INTO gallery (image_path, caption, alt_text, layout, country, focal_x, focal_y, sort_order)
-        VALUES (
-          ${image_path}, ${processed.caption}, ${processed.alt_text}, ${"normal"},
-          ${defaultCountry}, ${50}, ${50}, ${baseOrder + i}
-        )
-        RETURNING id
-      `;
-      items.push({ id: rows[0].id, image_path, caption: processed.caption, country: defaultCountry });
+      processed.image_path = image_path;
+
+      if (slot) {
+        const item = await assignGalleryImage(sql, {
+          slot,
+          allRows,
+          processed,
+          defaultCountry,
+        });
+        items.push(item);
+        filled += 1;
+      } else {
+        const rows = await sql`
+          INSERT INTO gallery (image_path, caption, alt_text, layout, country, focal_x, focal_y, sort_order)
+          VALUES (
+            ${image_path}, ${processed.caption}, ${processed.alt_text}, ${"normal"},
+            ${defaultCountry}, ${50}, ${50}, ${sort_order}
+          )
+          RETURNING id, sort_order
+        `;
+        items.push({
+          id: rows[0].id,
+          image_path,
+          caption: processed.caption,
+          country: defaultCountry,
+          sort_order: rows[0].sort_order,
+          filled: false,
+        });
+        added += 1;
+        allRows = await loadGalleryRows(sql);
+      }
     }
 
-    res.json({ count: items.length, items });
+    res.json({ count: items.length, filled, added, items });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/gallery/:id/image", requireAuth, upload.single("image"), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+    const sql = getSql();
+    const id = Number(req.params.id);
+    const allRows = await loadGalleryRows(sql);
+    const slot = allRows.find((row) => row.id === id);
+    if (!slot) {
+      return res.status(404).json({ error: "Gallery slot not found" });
+    }
+
+    const defaultCountry = (req.body.country || slot.country || "").trim();
+    const sequence = slotSequence(slot, allRows);
+    const processed = await normalizeUploadFile(req.file, {
+      country: defaultCountry,
+      caption: (req.body.caption || "").trim(),
+      sequence,
+    });
+    const image_path = await persistUploadFile(processed);
+    processed.image_path = image_path;
+
+    const item = await assignGalleryImage(sql, {
+      slot,
+      allRows,
+      processed,
+      defaultCountry,
+      replacePlaceholder: true,
+    });
+
+    res.json(item);
   } catch (err) {
     next(err);
   }
@@ -440,9 +554,19 @@ router.post("/upload", requireAuth, upload.single("image"), async (req, res, nex
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
+    const sql = getSql();
     const country = (req.body.country || "").trim();
     const caption = (req.body.caption || "").trim();
-    const processed = await normalizeUploadFile(req.file, { country, caption, sequence: Date.now() % 10000 });
+    let sequence = Date.now() % 10000;
+
+    const galleryId = Number(req.body.gallery_id);
+    if (galleryId) {
+      const allRows = await loadGalleryRows(sql);
+      const slot = allRows.find((row) => row.id === galleryId);
+      if (slot) sequence = slotSequence(slot, allRows);
+    }
+
+    const processed = await normalizeUploadFile(req.file, { country, caption, sequence });
     const imagePath = await persistUploadFile(processed);
     res.json({
       path: imagePath,
