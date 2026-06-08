@@ -5,7 +5,6 @@ const session = require("express-session");
 const pgSession = require("connect-pg-simple")(session);
 const path = require("path");
 const { initDb } = require("./db/database");
-const { getUploadDir } = require("./config/paths");
 const { ensureConnected, getPgPool } = require("./lib/db-connect");
 
 const app = express();
@@ -52,7 +51,7 @@ const setupPromise = (async () => {
   app.use("/api", require("./routes/tools"));
 
   app.use(express.static(path.join(__dirname, "public")));
-  app.use("/uploads", express.static(getUploadDir()));
+  app.use("/uploads", require("./routes/uploads"));
 
   const faviconPath = path.join(__dirname, "public", "favicon.svg");
   app.get(["/favicon.ico", "/favicon.svg"], (_req, res) => {

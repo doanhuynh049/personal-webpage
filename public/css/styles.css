@@ -835,6 +835,11 @@ ul {
   grid-row: span 2;
 }
 
+.gallery-item--large {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+
 /* ---- Contact ---- */
 
 .contact-links {
@@ -1094,7 +1099,8 @@ ul {
   }
 
   .gallery-item--wide,
-  .gallery-item--tall {
+  .gallery-item--tall,
+  .gallery-item--large {
     grid-column: span 1;
     grid-row: span 1;
   }

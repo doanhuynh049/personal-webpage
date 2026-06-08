@@ -184,14 +184,21 @@
 
         <!-- Gallery -->
         <section class="panel" id="panel-gallery">
-          <div class="panel-toolbar">
-            <label for="gallery-upload" class="btn btn-secondary btn-sm">+ Upload Photos</label>
-            <input type="file" id="gallery-upload" name="gallery-photo" accept="image/*" multiple hidden>
-            <span class="panel-hint">Unlimited photos · drag on grid to set position · N/W/T = size on page</span>
+          <div class="gallery-panel-header">
+            <div class="gallery-panel-title">
+              <span id="gallery-count" class="gallery-count-badge">0 photos</span>
+              <span class="gallery-panel-sub">Drag ⠿ to reorder · drag corner to resize · or pick 1×1 / 2×1 / 1×2 / 2×2</span>
+            </div>
+            <div class="panel-toolbar gallery-panel-toolbar">
+              <label for="gallery-upload" class="btn btn-primary btn-sm">+ Upload Photos</label>
+              <input type="file" id="gallery-upload" name="gallery-photo" accept="image/*" multiple hidden>
+            </div>
           </div>
-          <p class="panel-intro">Arrange your photography hobby gallery — order and tile size match the live site.</p>
           <div id="gallery-list" class="gallery-layout-editor"></div>
-          <p id="gallery-empty" class="gallery-empty" hidden>No photos yet. Upload one or many images to get started.</p>
+          <p id="gallery-empty" class="gallery-empty" hidden>
+            <strong>No photos yet</strong><br>
+            Upload one or many images — they are added without removing existing photos.
+          </p>
         </section>
 
         <!-- Contact -->

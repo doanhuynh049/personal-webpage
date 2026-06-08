@@ -569,35 +569,60 @@
   });
 
   // Gallery — visual layout editor
+  const GALLERY_LAYOUTS = AdminTools.GALLERY_LAYOUTS;
+
   function galleryLayoutClass(layout) {
-    if (layout === "wide") return "gallery-item--wide";
-    if (layout === "tall") return "gallery-item--tall";
-    return "";
+    const meta = GALLERY_LAYOUTS[layout] || GALLERY_LAYOUTS.normal;
+    return meta.className;
+  }
+
+  function galleryLayoutLabel(layout) {
+    return (GALLERY_LAYOUTS[layout] || GALLERY_LAYOUTS.normal).label;
+  }
+
+  function galleryImgSrc(item) {
+    if (!item?.image_path) return "";
+    const sep = item.image_path.includes("?") ? "&" : "?";
+    return `${item.image_path}${sep}v=${item.id}`;
   }
 
   function renderGallery() {
     const items = content.gallery || [];
     const list = $("#gallery-list");
     const empty = $("#gallery-empty");
+    const countEl = $("#gallery-count");
+
     empty.hidden = items.length > 0;
     list.hidden = items.length === 0;
+    if (countEl) countEl.textContent = `${items.length} photo${items.length === 1 ? "" : "s"}`;
 
     if (!items.length) {
       list.innerHTML = "";
       return;
     }
 
-    list.innerHTML = items.map((item, index) => `
-      <div class="gallery-editor-item ${galleryLayoutClass(item.layout)}" data-id="${item.id}">
+    list.innerHTML = items.map((item, index) => {
+      const layout = item.layout || "normal";
+      return `
+      <div class="gallery-editor-item ${galleryLayoutClass(layout)}" data-id="${item.id}" data-layout="${esc(layout)}">
         <span class="gallery-editor-pos">${index + 1}</span>
-        <img src="${esc(item.image_path)}" alt="${esc(item.alt_text || item.caption || "Photo")}">
+        <span class="gallery-size-badge">${galleryLayoutLabel(layout)}</span>
+        <img src="${esc(galleryImgSrc(item))}" alt="${esc(item.alt_text || item.caption || "Photo")}" loading="lazy">
+        <div class="gallery-broken-msg">
+          <p>Image file missing</p>
+          <label class="btn btn-secondary btn-sm gallery-reupload-label">
+            Re-upload
+            <input type="file" class="gallery-reupload-input" accept="image/*" hidden>
+          </label>
+        </div>
+        <button type="button" class="gallery-resize-handle" title="Drag corner to resize tile" aria-label="Resize photo tile"></button>
         <div class="gallery-editor-overlay">
           <div class="gallery-editor-top">
-            <span class="drag-handle" draggable="true" title="Drag to change position">⠿</span>
+            <span class="drag-handle" draggable="true" title="Drag to reorder">⠿</span>
             <div class="gallery-layout-btns">
-              <button type="button" class="gallery-layout-btn ${item.layout === "normal" || !item.layout ? "is-active" : ""}" data-layout="normal" title="Normal">N</button>
-              <button type="button" class="gallery-layout-btn ${item.layout === "wide" ? "is-active" : ""}" data-layout="wide" title="Wide">W</button>
-              <button type="button" class="gallery-layout-btn ${item.layout === "tall" ? "is-active" : ""}" data-layout="tall" title="Tall">T</button>
+              ${Object.entries(GALLERY_LAYOUTS).map(([key, meta]) => `
+                <button type="button" class="gallery-layout-btn ${layout === key ? "is-active" : ""}" data-layout="${key}" title="${meta.label}">${meta.label}</button>
+              `).join("")}
             </div>
           </div>
           <div class="gallery-editor-bottom">
@@ -608,15 +633,21 @@
             </div>
           </div>
         </div>
-      </div>
-    `).join("");
+      </div>`;
+    }).join("");
     bindGalleryEvents();
   }
 
-  async function saveGalleryItem(card) {
+  async function saveGalleryItem(card, layoutOverride) {
     const id = card.dataset.id;
     const orig = content.gallery.find((g) => g.id == id);
-    const layout = card.querySelector(".gallery-layout-btn.is-active")?.dataset.layout || orig.layout || "normal";
+    if (!orig) return;
+    const layout =
+      layoutOverride ||
+      card.querySelector(".gallery-layout-btn.is-active")?.dataset.layout ||
+      card.dataset.layout ||
+      orig.layout ||
+      "normal";
     await api(`/api/gallery/${id}`, {
       method: "PUT",
       body: JSON.stringify({
@@ -626,27 +657,48 @@
         layout,
       }),
     });
+    orig.layout = layout;
+    orig.caption = card.querySelector(".gal-caption").value;
+    orig.alt_text = card.querySelector(".gal-alt").value;
+    card.dataset.layout = layout;
   }
 
   function bindGalleryEvents() {
     const list = $("#gallery-list");
 
-    AdminTools.initGalleryLayoutEditor(list, async (ids) => {
-      await api("/api/gallery/reorder", { method: "PUT", body: JSON.stringify({ ids }) });
-      showToast("Photo order saved");
-      AdminTools.refreshPreview();
-    });
+    AdminTools.initGalleryLayoutEditor(
+      list,
+      async (ids) => {
+        await api("/api/gallery/reorder", { method: "PUT", body: JSON.stringify({ ids }) });
+        showToast("Photo order saved");
+        AdminTools.refreshPreview();
+      },
+      async (card, layout) => {
+        card.querySelectorAll(".gallery-layout-btn").forEach((b) => {
+          b.classList.toggle("is-active", b.dataset.layout === layout);
+        });
+        await saveGalleryItem(card, layout);
+        showToast(`Tile size ${galleryLayoutLabel(layout)}`);
+        AdminTools.refreshPreview();
+      }
+    );
 
     list.querySelectorAll(".gallery-editor-item").forEach((card) => {
+      const img = card.querySelector("img");
+      img?.addEventListener("error", () => {
+        card.classList.add("is-broken");
+        img.hidden = true;
+      });
+
       card.querySelectorAll(".gallery-layout-btn").forEach((btn) => {
         btn.addEventListener("click", async () => {
           const layout = btn.dataset.layout;
-          card.classList.remove("gallery-item--wide", "gallery-item--tall");
-          if (layout === "wide") card.classList.add("gallery-item--wide");
-          if (layout === "tall") card.classList.add("gallery-item--tall");
-          card.querySelectorAll(".gallery-layout-btn").forEach((b) => b.classList.toggle("is-active", b === btn));
-          await saveGalleryItem(card);
-          showToast("Tile size updated");
+          AdminTools.applyGalleryLayoutClass(card, layout);
+          card.querySelectorAll(".gallery-layout-btn").forEach((b) => {
+            b.classList.toggle("is-active", b === btn);
+          });
+          await saveGalleryItem(card, layout);
+          showToast(`Tile size ${galleryLayoutLabel(layout)}`);
           AdminTools.refreshPreview();
         });
       });
@@ -659,6 +711,35 @@
       card.querySelector(".gal-alt")?.addEventListener("change", async () => {
         await saveGalleryItem(card);
         showToast("Alt text saved");
+      });
+
+      const reuploadInput = card.querySelector(".gallery-reupload-input");
+      reuploadInput?.addEventListener("change", async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        e.target.value = "";
+        try {
+          const path = await uploadImage(file);
+          const id = card.dataset.id;
+          const orig = content.gallery.find((g) => g.id == id);
+          await api(`/api/gallery/${id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              image_path: path,
+              caption: card.querySelector(".gal-caption").value,
+              alt_text: card.querySelector(".gal-alt").value,
+              layout: card.dataset.layout || orig?.layout || "normal",
+            }),
+          });
+          if (orig) orig.image_path = path;
+          card.classList.remove("is-broken");
+          img.hidden = false;
+          img.src = `${path}?v=${Date.now()}`;
+          showToast("Photo replaced");
+          AdminTools.refreshPreview();
+        } catch (err) {
+          showToast(err.message, true);
+        }
       });
     });
 
@@ -679,22 +760,13 @@
     e.target.value = "";
 
     try {
-      if (files.length === 1) {
-        const path = await uploadImage(files[0]);
-        await api("/api/gallery", {
-          method: "POST",
-          body: JSON.stringify({ image_path: path, caption: "", alt_text: files[0].name, layout: "normal" }),
-        });
-        showToast("Photo uploaded");
-      } else {
-        const form = new FormData();
-        files.forEach((f) => form.append("images", f));
-        const res = await fetch("/api/gallery/batch", { method: "POST", credentials: "same-origin", body: form });
-        if (res.status === 401) { showLogin(); throw new Error("Unauthorized"); }
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Upload failed");
-        showToast(`${data.count} photos uploaded`);
-      }
+      const form = new FormData();
+      files.forEach((f) => form.append("images", f));
+      const res = await fetch("/api/gallery/batch", { method: "POST", credentials: "same-origin", body: form });
+      if (res.status === 401) { showLogin(); throw new Error("Unauthorized"); }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+      showToast(files.length === 1 ? "Photo uploaded" : `${data.count} photos uploaded`);
       await loadContent();
       AdminTools.refreshPreview();
     } catch (err) { showToast(err.message, true); }

@@ -96,7 +96,7 @@ async function initDb() {
       image_path TEXT NOT NULL,
       caption TEXT DEFAULT '',
       alt_text TEXT DEFAULT '',
-      layout TEXT DEFAULT 'normal' CHECK (layout IN ('normal', 'wide', 'tall')),
+      layout TEXT DEFAULT 'normal' CHECK (layout IN ('normal', 'wide', 'tall', 'large')),
       sort_order INTEGER DEFAULT 0
     )
   `;
@@ -111,6 +111,15 @@ async function initDb() {
     )
   `;
 
+  await db`
+    CREATE TABLE IF NOT EXISTS upload_files (
+      filename TEXT PRIMARY KEY,
+      data BYTEA NOT NULL,
+      mime_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
   const existing = await db`SELECT id FROM profile WHERE id = 1`;
   if (existing.length === 0) {
     await seedDb();
@@ -120,6 +129,16 @@ async function initDb() {
 async function migrateSchema(db) {
   await db`ALTER TABLE skills ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'tools'`;
   await db`ALTER TABLE skills ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0`;
+
+  try {
+    await db`ALTER TABLE gallery DROP CONSTRAINT IF EXISTS gallery_layout_check`;
+    await db`
+      ALTER TABLE gallery ADD CONSTRAINT gallery_layout_check
+      CHECK (layout IN ('normal', 'wide', 'tall', 'large'))
+    `;
+  } catch {
+    /* constraint already updated or table uses inline check from create */
+  }
 
   const roadmapSection = await db`SELECT section_key FROM sections WHERE section_key = 'roadmap'`;
   if (!roadmapSection.length) {

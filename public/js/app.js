@@ -66,6 +66,7 @@
   function layoutClass(layout) {
     if (layout === "wide") return "gallery-item--wide";
     if (layout === "tall") return "gallery-item--tall";
+    if (layout === "large") return "gallery-item--large";
     return "";
   }
 
