@@ -586,15 +586,25 @@
     return `${item.image_path}${sep}v=${item.id}`;
   }
 
+  function galleryImgStyle(item) {
+    const fx = item.focal_x ?? 50;
+    const fy = item.focal_y ?? 50;
+    return `object-position:${fx}% ${fy}%`;
+  }
+
   function renderGallery() {
     const items = content.gallery || [];
     const list = $("#gallery-list");
     const empty = $("#gallery-empty");
     const countEl = $("#gallery-count");
+    const countries = [...new Set(items.map((i) => i.country).filter(Boolean))];
 
     empty.hidden = items.length > 0;
     list.hidden = items.length === 0;
-    if (countEl) countEl.textContent = `${items.length} photo${items.length === 1 ? "" : "s"}`;
+    if (countEl) {
+      const countryNote = countries.length ? ` · ${countries.length} countr${countries.length === 1 ? "y" : "ies"}` : "";
+      countEl.textContent = `${items.length} photo${items.length === 1 ? "" : "s"}${countryNote}`;
+    }
 
     if (!items.length) {
       list.innerHTML = "";
@@ -603,16 +613,23 @@
 
     list.innerHTML = items.map((item, index) => {
       const layout = item.layout || "normal";
+      const fx = item.focal_x ?? 50;
+      const fy = item.focal_y ?? 50;
       return `
-      <div class="gallery-editor-item ${galleryLayoutClass(layout)}" data-id="${item.id}" data-layout="${esc(layout)}">
+      <div class="gallery-editor-item ${galleryLayoutClass(layout)}" data-id="${item.id}" data-layout="${esc(layout)}" data-focal-x="${fx}" data-focal-y="${fy}">
         <span class="gallery-editor-pos">${index + 1}</span>
         <span class="gallery-size-badge">${galleryLayoutLabel(layout)}</span>
-        <img src="${esc(galleryImgSrc(item))}" alt="${esc(item.alt_text || item.caption || "Photo")}" loading="lazy">
+        ${item.country ? `<span class="gallery-country-badge">${esc(item.country)}</span>` : ""}
+        <div class="gallery-image-frame">
+          <img src="${esc(galleryImgSrc(item))}" alt="${esc(item.alt_text || item.caption || "Photo")}" loading="lazy" style="${galleryImgStyle(item)}" draggable="false">
+          <button type="button" class="gallery-focal-marker" style="left:${fx}%;top:${fy}%" title="Drag or click to set visible area" aria-label="Adjust photo position"></button>
+          <div class="gallery-focal-hint">Click or drag to adjust frame</div>
+        </div>
         <div class="gallery-broken-msg">
           <p>Image file missing</p>
           <label class="btn btn-secondary btn-sm gallery-reupload-label">
             Re-upload
-            <input type="file" class="gallery-reupload-input" accept="image/*" hidden>
+            <input type="file" class="gallery-reupload-input" accept="image/*,.heic,.heif" hidden>
           </label>
         </div>
         <button type="button" class="gallery-resize-handle" title="Drag corner to resize tile" aria-label="Resize photo tile"></button>
@@ -626,7 +643,8 @@
             </div>
           </div>
           <div class="gallery-editor-bottom">
-            <input type="text" class="gal-caption" value="${esc(item.caption)}" placeholder="Caption" aria-label="Caption">
+            <input type="text" class="gal-country" value="${esc(item.country || "")}" placeholder="Country (e.g. Thailand)" aria-label="Country">
+            <input type="text" class="gal-caption" value="${esc(item.caption)}" placeholder="Place / caption (optional)" aria-label="Caption">
             <input type="text" class="gal-alt" value="${esc(item.alt_text)}" placeholder="Alt text" aria-label="Alt text">
             <div class="gallery-editor-actions">
               <button type="button" class="btn btn-danger btn-sm delete-gal">Delete</button>
@@ -648,19 +666,86 @@
       card.dataset.layout ||
       orig.layout ||
       "normal";
+    const focal_x = Number(card.dataset.focalX ?? 50);
+    const focal_y = Number(card.dataset.focalY ?? 50);
+    const country = card.querySelector(".gal-country")?.value?.trim() || "";
+    const caption = card.querySelector(".gal-caption")?.value?.trim() || "";
+    const alt_text = card.querySelector(".gal-alt")?.value?.trim() || "";
     await api(`/api/gallery/${id}`, {
       method: "PUT",
       body: JSON.stringify({
         image_path: orig.image_path,
-        caption: card.querySelector(".gal-caption").value,
-        alt_text: card.querySelector(".gal-alt").value,
+        caption,
+        alt_text,
         layout,
+        country,
+        focal_x,
+        focal_y,
       }),
     });
     orig.layout = layout;
-    orig.caption = card.querySelector(".gal-caption").value;
-    orig.alt_text = card.querySelector(".gal-alt").value;
+    orig.caption = caption;
+    orig.alt_text = alt_text;
+    orig.country = country;
+    orig.focal_x = focal_x;
+    orig.focal_y = focal_y;
     card.dataset.layout = layout;
+  }
+
+  function setGalleryFocal(card, x, y) {
+    const fx = Math.max(0, Math.min(100, Math.round(x)));
+    const fy = Math.max(0, Math.min(100, Math.round(y)));
+    card.dataset.focalX = String(fx);
+    card.dataset.focalY = String(fy);
+    const img = card.querySelector(".gallery-image-frame img");
+    const marker = card.querySelector(".gallery-focal-marker");
+    if (img) img.style.objectPosition = `${fx}% ${fy}%`;
+    if (marker) {
+      marker.style.left = `${fx}%`;
+      marker.style.top = `${fy}%`;
+    }
+  }
+
+  function bindGalleryFocal(card) {
+    const frame = card.querySelector(".gallery-image-frame");
+    const marker = card.querySelector(".gallery-focal-marker");
+    if (!frame || frame.dataset.focalBound) return;
+    frame.dataset.focalBound = "1";
+
+    const updateFromEvent = (e) => {
+      const rect = frame.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+      setGalleryFocal(card, x, y);
+    };
+
+    frame.addEventListener("click", async (e) => {
+      if (e.target.closest(".gallery-focal-marker")) return;
+      updateFromEvent(e);
+      await saveGalleryItem(card);
+      showToast("Frame position saved");
+      AdminTools.refreshPreview();
+    });
+
+    if (marker) {
+      let dragging = false;
+      marker.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragging = true;
+      });
+      document.addEventListener("mousemove", (e) => {
+        if (!dragging) return;
+        updateFromEvent(e);
+      });
+      document.addEventListener("mouseup", async () => {
+        if (!dragging) return;
+        dragging = false;
+        await saveGalleryItem(card);
+        showToast("Frame position saved");
+        AdminTools.refreshPreview();
+      });
+    }
   }
 
   function bindGalleryEvents() {
@@ -684,7 +769,8 @@
     );
 
     list.querySelectorAll(".gallery-editor-item").forEach((card) => {
-      const img = card.querySelector("img");
+      bindGalleryFocal(card);
+      const img = card.querySelector(".gallery-image-frame img");
       img?.addEventListener("error", () => {
         card.classList.add("is-broken");
         img.hidden = true;
@@ -708,6 +794,11 @@
         showToast("Caption saved");
         AdminTools.refreshPreview();
       });
+      card.querySelector(".gal-country")?.addEventListener("change", async () => {
+        await saveGalleryItem(card);
+        showToast("Country saved");
+        AdminTools.refreshPreview();
+      });
       card.querySelector(".gal-alt")?.addEventListener("change", async () => {
         await saveGalleryItem(card);
         showToast("Alt text saved");
@@ -728,7 +819,10 @@
               image_path: path,
               caption: card.querySelector(".gal-caption").value,
               alt_text: card.querySelector(".gal-alt").value,
+              country: card.querySelector(".gal-country")?.value?.trim() || "",
               layout: card.dataset.layout || orig?.layout || "normal",
+              focal_x: Number(card.dataset.focalX ?? 50),
+              focal_y: Number(card.dataset.focalY ?? 50),
             }),
           });
           if (orig) orig.image_path = path;
@@ -758,10 +852,12 @@
     const files = [...e.target.files];
     if (!files.length) return;
     e.target.value = "";
+    const country = $("#gallery-default-country")?.value?.trim() || "";
 
     try {
       const form = new FormData();
       files.forEach((f) => form.append("images", f));
+      if (country) form.append("country", country);
       const res = await fetch("/api/gallery/batch", { method: "POST", credentials: "same-origin", body: form });
       if (res.status === 401) { showLogin(); throw new Error("Unauthorized"); }
       const data = await res.json();

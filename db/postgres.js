@@ -97,6 +97,9 @@ async function initDb() {
       caption TEXT DEFAULT '',
       alt_text TEXT DEFAULT '',
       layout TEXT DEFAULT 'normal' CHECK (layout IN ('normal', 'wide', 'tall', 'large')),
+      country TEXT DEFAULT '',
+      focal_x INTEGER DEFAULT 50,
+      focal_y INTEGER DEFAULT 50,
       sort_order INTEGER DEFAULT 0
     )
   `;
@@ -139,6 +142,10 @@ async function migrateSchema(db) {
   } catch {
     /* constraint already updated or table uses inline check from create */
   }
+
+  await db`ALTER TABLE gallery ADD COLUMN IF NOT EXISTS country TEXT DEFAULT ''`;
+  await db`ALTER TABLE gallery ADD COLUMN IF NOT EXISTS focal_x INTEGER DEFAULT 50`;
+  await db`ALTER TABLE gallery ADD COLUMN IF NOT EXISTS focal_y INTEGER DEFAULT 50`;
 
   const roadmapSection = await db`SELECT section_key FROM sections WHERE section_key = 'roadmap'`;
   if (!roadmapSection.length) {

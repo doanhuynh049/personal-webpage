@@ -4,7 +4,8 @@ const path = require("path");
 const { getSql, getPublicContent } = require("../db/database");
 const { requireAuth } = require("../middleware/auth");
 const { upload, getUploadDir } = require("../middleware/upload");
-const { persistUpload } = require("../lib/upload-storage");
+const { persistUpload, persistUploadFile } = require("../lib/upload-storage");
+const { normalizeUploadFile } = require("../lib/process-image");
 
 const { normalizeCategory } = require("../lib/skill-categories");
 
@@ -247,15 +248,18 @@ router.delete("/skills/:id", requireAuth, async (req, res, next) => {
 
 router.post("/gallery", requireAuth, async (req, res, next) => {
   try {
-    let { image_path, caption, alt_text, layout, sort_order } = req.body;
+    let { image_path, caption, alt_text, layout, sort_order, country, focal_x, focal_y } = req.body;
     const sql = getSql();
     if (sort_order == null) {
       const countRows = await sql`SELECT COUNT(*)::int AS count FROM gallery`;
       sort_order = Number(countRows[0]?.count ?? 0);
     }
     const rows = await sql`
-      INSERT INTO gallery (image_path, caption, alt_text, layout, sort_order)
-      VALUES (${image_path}, ${caption}, ${alt_text}, ${layout || "normal"}, ${sort_order})
+      INSERT INTO gallery (image_path, caption, alt_text, layout, country, focal_x, focal_y, sort_order)
+      VALUES (
+        ${image_path}, ${caption}, ${alt_text}, ${layout || "normal"},
+        ${country || ""}, ${focal_x ?? 50}, ${focal_y ?? 50}, ${sort_order}
+      )
       RETURNING id
     `;
     res.json({ id: rows[0].id });
@@ -272,17 +276,25 @@ router.post("/gallery/batch", requireAuth, upload.array("images", 200), async (r
     const sql = getSql();
     const countRows = await sql`SELECT COUNT(*)::int AS count FROM gallery`;
     const baseOrder = Number(countRows[0]?.count ?? 0);
+    const defaultCountry = (req.body.country || req.body.default_country || "").trim();
     const items = [];
 
     for (let i = 0; i < req.files.length; i++) {
       const file = req.files[i];
-      const image_path = await persistUpload(file);
+      const processed = await normalizeUploadFile(file, {
+        country: defaultCountry,
+        sequence: baseOrder + i + 1,
+      });
+      const image_path = await persistUploadFile(processed);
       const rows = await sql`
-        INSERT INTO gallery (image_path, caption, alt_text, layout, sort_order)
-        VALUES (${image_path}, ${""}, ${file.originalname}, ${"normal"}, ${baseOrder + i})
+        INSERT INTO gallery (image_path, caption, alt_text, layout, country, focal_x, focal_y, sort_order)
+        VALUES (
+          ${image_path}, ${processed.caption}, ${processed.alt_text}, ${"normal"},
+          ${defaultCountry}, ${50}, ${50}, ${baseOrder + i}
+        )
         RETURNING id
       `;
-      items.push({ id: rows[0].id, image_path });
+      items.push({ id: rows[0].id, image_path, caption: processed.caption, country: defaultCountry });
     }
 
     res.json({ count: items.length, items });
@@ -293,11 +305,12 @@ router.post("/gallery/batch", requireAuth, upload.array("images", 200), async (r
 
 router.put("/gallery/:id", requireAuth, async (req, res, next) => {
   try {
-    const { image_path, caption, alt_text, layout, sort_order } = req.body;
+    const { image_path, caption, alt_text, layout, sort_order, country, focal_x, focal_y } = req.body;
     const sql = getSql();
     await sql`
       UPDATE gallery SET image_path = ${image_path}, caption = ${caption}, alt_text = ${alt_text},
-      layout = ${layout || "normal"}, sort_order = ${sort_order ?? 0}
+      layout = ${layout || "normal"}, country = ${country || ""},
+      focal_x = ${focal_x ?? 50}, focal_y = ${focal_y ?? 50}, sort_order = ${sort_order ?? 0}
       WHERE id = ${req.params.id}
     `;
     res.json({ ok: true });
@@ -427,8 +440,15 @@ router.post("/upload", requireAuth, upload.single("image"), async (req, res, nex
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
-    const imagePath = await persistUpload(req.file);
-    res.json({ path: imagePath });
+    const country = (req.body.country || "").trim();
+    const caption = (req.body.caption || "").trim();
+    const processed = await normalizeUploadFile(req.file, { country, caption, sequence: Date.now() % 10000 });
+    const imagePath = await persistUploadFile(processed);
+    res.json({
+      path: imagePath,
+      caption: processed.caption,
+      alt_text: processed.alt_text,
+    });
   } catch (err) {
     next(err);
   }

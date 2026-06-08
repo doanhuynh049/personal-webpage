@@ -70,6 +70,63 @@
     return "";
   }
 
+  function galleryImgStyle(item) {
+    const fx = item.focal_x ?? 50;
+    const fy = item.focal_y ?? 50;
+    return `object-position:${fx}% ${fy}%`;
+  }
+
+  function renderGalleryItem(item) {
+    const caption = item.caption || item.country || "";
+    return `
+                <figure class="gallery-item ${layoutClass(item.layout)}" data-country="${escapeHtml(item.country || "")}">
+                  <img src="${escapeHtml(item.image_path)}" alt="${escapeHtml(item.alt_text || item.caption || item.country || "Photo")}" loading="lazy" style="${galleryImgStyle(item)}">
+                  ${caption ? `<figcaption>${escapeHtml(caption)}</figcaption>` : ""}
+                </figure>`;
+  }
+
+  function renderGallerySection(gallery) {
+    const countries = [...new Set(gallery.map((g) => g.country).filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b)
+    );
+    const uncategorized = gallery.filter((g) => !g.country);
+
+    if (!countries.length) {
+      return `<div class="gallery-grid">${gallery.map(renderGalleryItem).join("")}</div>`;
+    }
+
+    const filters = countries.map(
+      (c) => `<button type="button" class="gallery-filter-btn" data-country="${escapeHtml(c)}">${escapeHtml(c)}</button>`
+    ).join("");
+
+    const groups = countries.map((country) => {
+      const items = gallery.filter((g) => g.country === country);
+      return `
+        <section class="gallery-country-group" data-country="${escapeHtml(country)}">
+          <h3 class="gallery-country-title">${escapeHtml(country)} <span class="gallery-country-count">${items.length}</span></h3>
+          <div class="gallery-grid">${items.map(renderGalleryItem).join("")}</div>
+        </section>`;
+    }).join("");
+
+    const other = uncategorized.length
+      ? `
+        <section class="gallery-country-group" data-country="">
+          <h3 class="gallery-country-title">More photos <span class="gallery-country-count">${uncategorized.length}</span></h3>
+          <div class="gallery-grid">${uncategorized.map(renderGalleryItem).join("")}</div>
+        </section>`
+      : "";
+
+    return `
+            <div class="gallery-travel">
+              <div class="gallery-country-nav" role="tablist" aria-label="Filter by country">
+                <button type="button" class="gallery-filter-btn is-active" data-country="all">All countries</button>
+                ${filters}
+              </div>
+              ${groups}
+              ${other}
+            </div>`;
+  }
+
   const SKILL_CATEGORIES = {
     languages: "Languages",
     embedded: "Embedded",
@@ -238,14 +295,7 @@
               <h2>${escapeHtml(sections.gallery?.heading)}</h2>
               ${sections.gallery?.description ? `<p class="section-desc">${escapeHtml(sections.gallery.description)}</p>` : ""}
             </header>
-            <div class="gallery-grid">
-              ${gallery.map((item) => `
-                <figure class="gallery-item ${layoutClass(item.layout)}">
-                  <img src="${escapeHtml(item.image_path)}" alt="${escapeHtml(item.alt_text || item.caption)}" loading="lazy">
-                  ${item.caption ? `<figcaption>${escapeHtml(item.caption)}</figcaption>` : ""}
-                </figure>
-              `).join("")}
-            </div>
+            ${renderGallerySection(gallery)}
           </div>
         </section>
 
@@ -303,6 +353,22 @@
         navLinks.classList.remove("is-open");
         toggle.classList.remove("is-active");
         toggle.setAttribute("aria-expanded", "false");
+      });
+    });
+
+    document.querySelectorAll(".gallery-filter-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const country = btn.dataset.country;
+        document.querySelectorAll(".gallery-filter-btn").forEach((b) => {
+          b.classList.toggle("is-active", b === btn);
+        });
+        document.querySelectorAll(".gallery-country-group").forEach((group) => {
+          if (country === "all") {
+            group.hidden = false;
+            return;
+          }
+          group.hidden = group.dataset.country !== country;
+        });
       });
     });
 

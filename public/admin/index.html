@@ -96,7 +96,7 @@
                 <img id="profile-preview" class="image-preview" src="" alt="Profile preview">
                 <div class="image-upload-actions">
                   <label for="profile-upload" class="btn btn-secondary btn-sm">Upload Photo</label>
-                  <input type="file" id="profile-upload" name="profile-photo" accept="image/*" hidden>
+                  <input type="file" id="profile-upload" name="profile-photo" accept="image/*,.heic,.heif" hidden>
                   <span class="hint">JPG, PNG, WebP up to 10 MB</span>
                 </div>
               </div>
@@ -187,13 +187,15 @@
           <div class="gallery-panel-header">
             <div class="gallery-panel-title">
               <span id="gallery-count" class="gallery-count-badge">0 photos</span>
-              <span class="gallery-panel-sub">Drag ⠿ to reorder · drag corner to resize · or pick 1×1 / 2×1 / 1×2 / 2×2</span>
+              <span class="gallery-panel-sub">Drag ⠿ to reorder · drag corner for tile size · click image to adjust crop</span>
             </div>
             <div class="panel-toolbar gallery-panel-toolbar">
+              <input type="text" id="gallery-default-country" class="gallery-country-input" placeholder="Country for new uploads (e.g. Japan)" aria-label="Country for new uploads">
               <label for="gallery-upload" class="btn btn-primary btn-sm">+ Upload Photos</label>
-              <input type="file" id="gallery-upload" name="gallery-photo" accept="image/*" multiple hidden>
+              <input type="file" id="gallery-upload" name="gallery-photo" accept="image/*,.heic,.heif" multiple hidden>
             </div>
           </div>
+          <p class="gallery-panel-sub gallery-panel-sub--block">Set <strong>Country</strong> before upload to group travel photos · HEIC/iPhone photos auto-convert to JPG · click photo to set frame position</p>
           <div id="gallery-list" class="gallery-layout-editor"></div>
           <p id="gallery-empty" class="gallery-empty" hidden>
             <strong>No photos yet</strong><br>

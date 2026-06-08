@@ -12,12 +12,12 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (_req, file, cb) => {
-  const allowed = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"];
+  const allowed = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg", ".heic", ".heif"];
   const ext = path.extname(file.originalname).toLowerCase();
-  if (allowed.includes(ext)) {
+  if (allowed.includes(ext) || /heic|heif/i.test(file.mimetype || "")) {
     cb(null, true);
   } else {
-    cb(new Error("Only image files are allowed"));
+    cb(new Error("Only image files are allowed (JPG, PNG, WebP, GIF, SVG, HEIC)"));
   }
 };
 
